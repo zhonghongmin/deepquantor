@@ -5,7 +5,9 @@
 # 用法： bash scripts/push-github.sh [remote]
 set -euo pipefail
 
-export PATH=/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:$PATH
+# 只追加缺失的系统路径，不得把 /usr/bin 插到前面：
+# 本机 python3 是 pyenv shim（带 pytest），插队会切到无 pytest 的系统 Python。
+export PATH="$PATH:/usr/bin:/bin"
 REPO_DIR="${REPO_DIR:-/workspace/deepquantor-repo-template}"
 REMOTE="${1:-git@github.com:zhonghongmin/deepquantor.git}"
 BRANCH="main"
@@ -24,14 +26,18 @@ if [ -n "${GITHUB_TOKEN:-}" ]; then
     https://api.github.com/user)
   [ "$AUTH_CODE" = "200" ] && echo "✅ PAT 认证通过" || { echo "❌ PAT 无效（HTTP $AUTH_CODE）"; exit 1; }
 else
-  if ! ssh -T -o BatchMode=yes -o StrictHostKeyChecking=accept-new git@github.com 2>&1 | grep -q "successfully authenticated"; then
-    echo "❌ SSH 认证未通过。确认公钥已添加到 GitHub："
-    echo "   https://github.com/settings/keys"
+  # 注意：不可用 `ssh ... | grep -q` 判定。
+  # grep -q 命中即退出会让 ssh 收到 SIGPIPE 而非零退出，配合 set -o pipefail
+  # 会把「认证成功」误判成失败。必须先完整捕获输出再匹配。
+  SSH_OUT=$(ssh -T -o BatchMode=yes -o StrictHostKeyChecking=accept-new git@github.com 2>&1 || true)
+  if ! grep -q "successfully authenticated" <<<"$SSH_OUT"; then
+    echo "❌ SSH 认证未通过。实际返回：${SSH_OUT}"
+    echo "   确认公钥已添加到 GitHub：https://github.com/settings/keys"
     echo "   公钥内容："
     echo "   $(cat /root/.ssh/id_ed25519_dq_github.pub)"
     exit 1
   fi
-  echo "✅ SSH 认证通过"
+  echo "✅ SSH 认证通过（${SSH_OUT%%[!H]*}）"
 fi
 
 echo "══ 2/6 远端连通回验 ══"
