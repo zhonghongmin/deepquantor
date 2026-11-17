@@ -32,9 +32,11 @@ else
   SSH_OUT=$(ssh -T -o BatchMode=yes -o StrictHostKeyChecking=accept-new git@github.com 2>&1 || true)
   if ! grep -q "successfully authenticated" <<<"$SSH_OUT"; then
     echo "❌ SSH 认证未通过。实际返回：${SSH_OUT}"
-    echo "   确认公钥已添加到 GitHub：https://github.com/settings/keys"
+    echo "   首选：按项目资产《Git凭据托管说明》恢复同一把 Deploy Key"
+    echo "        bash scripts/restore-git-credential.sh --check   # 体检"
+    echo "   次选：公钥需添加到 GitHub 仓库的 Deploy keys（不是账号级 SSH keys）"
     echo "   公钥内容："
-    echo "   $(cat /root/.ssh/id_ed25519_dq_github.pub)"
+    echo "   $(cat /root/.ssh/id_ed25519_dq_deploy.pub 2>/dev/null || echo '(私钥不在本机，先跑恢复脚本)')"
     exit 1
   fi
   echo "✅ SSH 认证通过（${SSH_OUT%%[!H]*}）"

@@ -61,3 +61,8 @@ desktop.ini
 tmp/
 .cache/
 *.log
+
+# ── 报告与覆盖率产物（每次运行都变，会制造无意义 diff）───────────
+reports/
+coverage/
+htmlcov/
