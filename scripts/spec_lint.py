@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import sys
 from pathlib import Path
@@ -210,10 +209,10 @@ def check_structure(root: Path, inv: dict, findings: list) -> None:
                 continue
             text = src.read_text(encoding="utf-8")
             m = re.search(
-                r"class\s+%s\b.*?stock:\s*float.*?bond:\s*float.*?gold:\s*float.*?cash:\s*float"
-                % re.escape(sa.get("target", "AssetAlloc")),
+                rf"class\s+{re.escape(sa.get('target', 'AssetAlloc'))}\b"
+                r".*?stock:\s*float.*?bond:\s*float.*?gold:\s*float.*?cash:\s*float",
                 text,
-                re.S,
+                re.DOTALL,
             )
             if not m:
                 continue
