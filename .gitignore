@@ -1,0 +1,63 @@
+# ── 凭证与密钥（NFR-07 / NFR-12：.env 不入库、不入日志）────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+secrets/
+credentials/
+
+# ── Python CLI（cli/）──────────────────────────────────────────────
+cli/.venv/
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# ── Node Web（web/）────────────────────────────────────────────────
+web/node_modules/
+web/.next/
+web/out/
+web/.turbo/
+web/dist/
+web/.vercel/
+web/coverage/
+web/test-results/
+web/playwright-report/
+
+# ── 数据库与运行时数据（数据/日志/备份一律落 D:\develop\<中间件>\，不入应用目录）
+*.sqlite
+*.sqlite3
+*.db
+data/
+logs/
+log/
+backups/
+dump/
+*.sql.gz
+!.github/**/*.sql
+
+# ── 本地中间件数据目录（不随应用目录迁移）────────────────────────────
+pgdata/
+redisdata/
+
+# ── 编辑器与操作系统 ───────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── 本地临时与工具产物 ─────────────────────────────────────────────
+tmp/
+.cache/
+*.log

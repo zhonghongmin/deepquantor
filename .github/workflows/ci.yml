@@ -1,0 +1,131 @@
+name: CI
+
+# 门禁依据：《系统设计总文档》§9 测试体系 + codebuddy.md §5
+#   - 代码 + 测试同 PR，CI 失败禁止合并
+#   - 策略与风控模块行覆盖率 ≥80%；关键纯函数 100% 状态空间覆盖
+#   - 未 verified 不开工：spec_lint 不通过不得进入代码与测试环节
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  spec-lint:
+    name: spec_lint（单一事实源一致性）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: 安装 spec_lint 依赖
+        run: pip install pyyaml
+      - name: 执行 spec_lint
+        run: python scripts/spec_lint.py --spec spec/ --root .
+      - name: 上传 lint 报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spec-lint-report
+          path: reports/spec-lint.json
+          if-no-files-found: ignore
+
+  cli-tests:
+    name: CLI 测试（pytest）
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cli
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: dq_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 10s
+          --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: 校验依赖锁与 pyproject 未漂移
+        run: |
+          pip install uv
+          uv pip compile pyproject.toml -o /tmp/req.lock --quiet --index-url https://pypi.tuna.tsinghua.edu.cn/simple
+          # 首行注释含生成命令（输出文件名不同必然不同），比对前剔除注释行
+          diff <(grep -v '^#' /tmp/req.lock) <(grep -v '^#' requirements.lock)
+      - name: lint
+        run: ruff check .
+      - name: 单测 + 覆盖率
+        env:
+          OFFLINE_PG_HOST: 127.0.0.1
+          OFFLINE_PG_PORT: 5432
+          OFFLINE_PG_DB: dq_test
+          OFFLINE_PG_USER: postgres
+          OFFLINE_PG_PASSWORD: test
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: 6379
+        run: pytest --cov=dq --cov-report=xml --cov-report=term --cov-fail-under=80
+
+  web-tests:
+    name: Web 测试（Vitest）
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: 安装依赖
+        run: npm ci
+      - name: 类型检查
+        run: npm run typecheck
+      - name: lint
+        run: npm run lint
+      - name: 单测
+        run: npm test
+      - name: 构建
+        run: npm run build
+
+  # 迁移纪律：任何表结构变更走 migrations/YYYYMMDD_xxx.sql，必须附回滚脚本
+  migration-check:
+    name: 迁移脚本配对检查
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 每个迁移必须有回滚脚本
+        run: |
+          set -e
+          fail=0
+          for f in migrations/*.sql; do
+            [ -e "$f" ] || continue
+            base="${f%.sql}"
+            if [ ! -f "${base}.rollback.sql" ]; then
+              echo "❌ 缺少回滚脚本：${base}.rollback.sql"
+              fail=1
+            fi
+          done
+          exit $fail

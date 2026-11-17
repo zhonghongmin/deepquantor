@@ -1,0 +1,111 @@
+# spec/invariants.yaml —— 不变量声明（L1）
+#
+# 作用（§14.3）：受检文件登记、禁用词、受控词表、跨章节冲突对、结构断言、计数规则。
+# 纪律：新增文件须先在 `files` 登记，否则 spec_lint 判为「无主漂移」。
+#
+# 事实单点原则：数字 / 表名 / 页数 / 字段名 / 路由一律声明在此，文档以 {{...}} 占位引用。
+
+version: 1
+
+# ── 受检文件登记：每个存在的源码文件须在此有对应条目 ──────────────────
+files:
+  - path: cli/dq/__init__.py
+    kind: python
+    decision: C-07
+    summary: dq 包入口与职责边界说明
+  - path: cli/dq/cli.py
+    kind: python
+    decision: D-28          # 单一 CLI 入口
+    summary: 统一入口，按 job_key 分发；时点禁令断言
+  - path: cli/dq/macro/__init__.py
+    kind: python
+    decision: D-30
+    summary: 宏观策略引擎包导出面
+  - path: cli/dq/macro/engine.py
+    kind: python
+    decision: D-30
+    summary: 宏观策略引擎（纯函数 + 总装配）
+  - path: cli/dq/macro/schema.py
+    kind: python
+    decision: D-30
+    summary: 宏观输出契约数据结构（MacroSignal 等）
+  - path: cli/dq/macro/config.py
+    kind: python
+    decision: D-30
+    summary: 宏观查表配置（阈值集中，便于审计）
+  - path: cli/tests/test_macro.py
+    kind: test
+    decision: C-07
+    summary: 宏观引擎单测（含反例）
+  - path: deploy/sync/sync_offline_to_online.py
+    kind: python
+    decision: D-28
+    summary: 线下 → 线上增量同步（本期唯一同步链路）
+  - path: deploy/sync/sync_online_to_offline.py
+    kind: python
+    decision: D-28
+    summary: 线上 → 线下用户注册回传（本期不启用）
+  - path: deploy/scheduler/register_jobs.py
+    kind: python
+    decision: D-28
+    summary: 任务登记器：jobs.yaml → task.job_def（幂等 + cron 时点校验）
+
+# ── 禁用词：出现即报错（口径歧义的历史遗留叫法）──────────────────────
+banned_terms:
+  - term: 主库
+    reason: 须明确区分「线下分析库（写权威）」与「线上展示库（只读副本）」
+  - term: 实时计算
+    reason: 线上页面禁止实时算；一切计算在线下 CLI 完成
+  - term: 硬编码
+    reason: 配置必须经 env 注入
+
+# ── 受控词表：同一概念只允许一种叫法 ────────────────────────────────
+controlled_terms:
+  - concept: 线下分析库
+    allowed: [线下分析库, offline 分析库, 线下库]
+    forbidden: [主库, 业务库]
+  - concept: 线上展示库
+    allowed: [线上展示库, 线上库, 展示库]
+    forbidden: [主库]
+  - concept: 写权威
+    allowed: [写权威, 唯一写权威]
+    forbidden: [读写一体]
+
+# ── 跨章节冲突对：两处描述同一事实时须一致 ───────────────────────────
+conflict_pairs:
+  - fact: 数据库表数量
+    locations:
+      - doc: 量化选股系统·数据库设计文档
+        anchor: 表清单
+      - doc: 量化选股系统·环境与初始化文档
+        anchor: 验收断言
+  - fact: 管理端页面数量
+    locations:
+      - doc: 量化选股系统·系统设计总文档
+        anchor: 路由与页面清单
+      - doc: 量化选股系统·需求文档
+        anchor: 管理端
+
+# ── 结构断言：数量关系必须成立（D-21 三处同源）──────────────────────
+structure_assertions:
+  - id: SA-01
+    desc: 管理端页数 = section 数 = 导航项数 = 路由键数
+    scope: web/app/admin
+    rule: counts_equal
+    equals: [sections, nav_items, route_keys]
+  - id: SA-02
+    desc: 资产配置四项之和 = 1.0
+    scope: cli/dq/macro
+    rule: sum_equals
+    target: AssetAlloc
+    value: 1.0
+
+# ── 计数规则：口径必须显式声明，禁止各文档各算各的 ─────────────────────
+count_rules:
+  - name: 表数量
+    definition: 仅统计 8 个业务 schema 下 base table，不含分区子表
+    excludes: [pg_inherits 子表, 视图, 序列]
+  - name: 章节数
+    definition: Markdown 二级及以上标题计数
+  - name: 表格数
+    definition: Markdown 表格块计数
