@@ -93,6 +93,8 @@ structure_assertions:
     scope: web/app/admin
     rule: counts_equal
     equals: [sections, nav_items, route_keys]
+    pending: true           # 管理端前端尚未实现（当前只有 web/package.json）；
+                            # 一旦 web/app/admin 入库，本断言自动恢复为强制校验
   - id: SA-02
     desc: 资产配置四项之和 = 1.0
     scope: cli/dq/macro

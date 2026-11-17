@@ -174,19 +174,33 @@ def check_decisions(root: Path, inv: dict, dec: dict, findings: list) -> None:
 
 
 def check_structure(root: Path, inv: dict, findings: list) -> None:
-    """规则 5：结构断言。当前支持 counts_equal / sum_equals。"""
+    """规则 5：结构断言。当前支持 counts_equal / sum_equals。
+
+    `pending: true` 表示该断言描述的是**尚未实现**的目标结构（如管理端前端还没建）。
+    此时 scope 不存在或内容不足是预期状态，只记提示不判失败 —— 但若 scope 已存在且
+    内容可校验，仍要实际校验（不能拿 pending 当免检通行证）。
+    """
     for sa in inv.get("structure_assertions") or []:
         rule = sa.get("rule")
         scope = sa.get("scope")
         if not scope:
             continue
+        pending = bool(sa.get("pending"))
         base = root / scope
         if not base.exists():
-            findings.append({
-                "rule": "missing-scope",
-                "file": "spec/invariants.yaml",
-                "message": f"{sa.get('id')} 的 scope 不存在：{scope}",
-            })
+            if pending:
+                findings.append({
+                    "rule": "pending-assertion",
+                    "file": "spec/invariants.yaml",
+                    "severity": "info",
+                    "message": f"{sa.get('id')}：scope 尚未实现（{scope}），断言暂挂",
+                })
+            else:
+                findings.append({
+                    "rule": "missing-scope",
+                    "file": "spec/invariants.yaml",
+                    "message": f"{sa.get('id')} 的 scope 不存在：{scope}",
+                })
             continue
 
         if rule == "sum_equals":
@@ -267,24 +281,34 @@ def main(argv: list[str] | None = None) -> int:
     check_decisions(root, inv, dec, findings)
     check_structure(root, inv, findings)
 
+    # info 级 finding（如 pending 断言）只留痕，不判失败
+    errors = [f for f in findings if f.get("severity") != "info"]
+    infos = [f for f in findings if f.get("severity") == "info"]
+
     report = {
-        "ok": not findings,
-        "count": len(findings),
+        "ok": not errors,
+        "count": len(errors),
+        "info_count": len(infos),
         "findings": findings,
     }
     rp = root / a.report
     rp.parent.mkdir(parents=True, exist_ok=True)
     rp.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    if findings:
-        print(f"spec_lint 未通过：{len(findings)} 项\n", file=sys.stderr)
-        for f in findings:
+    for f in infos:
+        loc = f["file"] + (f":{f['line']}" if "line" in f else "")
+        print(f"  [提示] {loc}\n        {f['message']}", file=sys.stderr)
+
+    if errors:
+        print(f"spec_lint 未通过：{len(errors)} 项\n", file=sys.stderr)
+        for f in errors:
             loc = f["file"] + (f":{f['line']}" if "line" in f else "")
             print(f"  [{f['rule']}] {loc}\n      {f['message']}", file=sys.stderr)
         print(f"\n报告：{rp}", file=sys.stderr)
         return 1
 
-    print(f"spec_lint 通过（报告：{rp}）")
+    extra = f"（{len(infos)} 项提示）" if infos else ""
+    print(f"spec_lint 通过{extra}（报告：{rp}）")
     return 0
 
 
