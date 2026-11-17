@@ -69,13 +69,15 @@ cd D:\develop\deepquantor
 
 脚本幂等，重复执行安全；不改全局 git 配置；提交前会拦截误暂存的 `.env`。
 
+**接远端的完整步骤见 [`docs/接远端仓库操作手册.md`](docs/接远端仓库操作手册.md)** —— 含认证方式、
+「远端建库时勾了 README」的处理、默认分支是 master 的坑、交付回验清单。
+
 装依赖（内网 PyPI 慢，务必用清华源）：
 
 ```powershell
 cd cli
 uv venv --python 3.11
 uv pip install -e ".[dev]" --index-url https://pypi.tuna.tsinghua.edu.cn/simple
-uv pip compile pyproject.toml -o requirements.lock --index-url https://pypi.tuna.tsinghua.edu.cn/simple
 
 cd ..\web
 npm install
@@ -83,13 +85,21 @@ npm install
 
 ## 提交前门禁
 
+一条命令跑完全部门禁（与 CI 同一批）：
+
+```powershell
+.\scripts\check-all.ps1
+```
+
+或逐条：
+
 ```bash
 python scripts/spec_lint.py --spec spec/ --root .   # 一致性门禁（CI 必跑）
 cd cli && pytest -v                                  # 单测
 cd web && npm test                                   # 单测
 ```
 
-CI 必过项：`spec_lint` / `ruff` / `pytest`（覆盖率 ≥80%）/ `tsc --noEmit` / `next lint` / `vitest` / `next build` / 迁移回滚脚本配对。
+CI 必过项：`spec_lint` / `ruff` / `pytest`（覆盖率 ≥80%）/ 依赖锁一致 / `tsc --noEmit` / `next lint` / `vitest` / `next build` / 迁移回滚脚本配对。
 
 ## 表结构变更纪律
 
