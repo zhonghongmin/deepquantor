@@ -32,7 +32,7 @@ else
   SSH_OUT=$(ssh -T -o BatchMode=yes -o StrictHostKeyChecking=accept-new git@github.com 2>&1 || true)
   if ! grep -q "successfully authenticated" <<<"$SSH_OUT"; then
     echo "❌ SSH 认证未通过。实际返回：${SSH_OUT}"
-    echo "   首选：按 dq-code-dev-skill 的 references/git-workflow.md §0 恢复同一把 Deploy Key"
+    echo "   首选：按 dq-git-skill 的 references/git-workflow.md §0 恢复同一把 Deploy Key"
     echo "        bash scripts/restore-git-credential.sh --check   # 体检"
     echo "   次选：公钥需添加到 GitHub 仓库的 Deploy keys（不是账号级 SSH keys）"
     echo "   公钥内容："
