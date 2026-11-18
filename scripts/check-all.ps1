@@ -14,6 +14,9 @@
 
     CI 跑在同一批门禁上；本脚本用于本地提前发现问题，避免推上去才发现红。
 
+    ⚠️ 2026-11-18：早期生成代码已清除，仓库为治理空壳。当前仅第 1 项 spec_lint 可用；
+       第 2~7 项依赖 cli/ 与 web/ 目录，本地代码重建前会失败，属预期。重建后本脚本自动恢复。
+
 .EXAMPLE
     .\scripts\check-all.ps1
     .\scripts\check-all.ps1 -SkipBuild    # 跳过 next build（较慢）
