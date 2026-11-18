@@ -1,111 +1,50 @@
 # deepquantor · 量化选股系统
 
-代码库（git 管理）。文档真值在**项目资产**（网盘目录 `CEgKZcgndFHV`），本仓库只放代码与可执行资产。
+代码基座（git 管理）。**当前为治理空壳**：早期生成的代码（宏观引擎 / 前端骨架 / 同步脚本）口径过期、与项目资产文档不一致，已于 2026-11-18 清除。开发在本地基座 `D:\develop\deepquantor` 接续，不在沙箱进行（决策 E-07）。
 
-> 原则：同一事实只写一处。文档 → 项目资产；代码 → 本仓库；派生视图（HTML 阅读版）→ 实时渲染，不入库。
+> 真值边界：**文档与需求状态 → 项目资产（网盘 `CEgKZcgndFHV`）**；代码 → 本地基座。同一事实只写一处，不互相镜像。
+> 一切以项目资产文档为准；本仓库 README 与 `docs/` 下的历史操作记录仅供参考，与项目资产冲突时以项目资产为准。
 
-## 目录结构
+## 当前保留内容
 
 ```
 deepquantor/
-├── cli/                      # Python 3.11 线下采集与计算（包名 dq）
-│   ├── dq/
-│   │   ├── cli.py            #   统一入口 python -m dq.cli <job_key>
-│   │   ├── collectors/       #   按数据源分目录 fetch → transform → persist（自注册）
-│   │   ├── schemas/          #   字段定义与类型（对齐《数据库设计文档》）
-│   │   ├── config/           #   只从 env 读，不硬编码阈值
-│   │   └── macro/            #   宏观策略引擎（纯函数 + 总装配）
-│   ├── tests/                #   pytest 单测 + 数据口径校验
-│   ├── pyproject.toml
-│   └── requirements.lock     #   依赖锁（uv pip compile 生成，禁止手改）
-├── web/                      # Node 22 + Next.js + Tailwind 线上站点（管理端）
-│   ├── app/api/<resource>/route.ts
-│   ├── app/admin/<page>/page.tsx
-│   ├── lib/<domain>.ts
-│   ├── services/db.ts        #   只读线上结果副本 + 用户域写
-│   └── tests/{unit,integration}/
-├── deploy/                   # 部署侧（文档 §4）
-│   ├── env/                  #   .env.example 模板（实际 .env 不入库）
-│   ├── postgres/             #   ddl.sql 唯一可执行权威 + 分域授权
-│   ├── redis/
-│   ├── scheduler/            #   jobs.yaml 任务定义唯一权威
-│   ├── sync/                 #   两个 sync-* CLI（双库唯一通道）
-│   └── scripts/              #   bootstrap / start / backup / healthcheck
-├── spec/                     # 单一事实源（D-21 §14.3）
-│   ├── invariants.yaml       #   受检文件登记 / 禁用词 / 结构断言 / 计数规则
-│   ├── decisions.yaml        #   决议登记（status / affects / tests）
-│   ├── pages.yaml            #   页面清单（L2）
-│   ├── schema.yaml           #   表清单与字段口径（L2）
-│   └── terms.yaml            #   术语词典（L2）
-├── migrations/               #   YYYYMMDD_xxx.sql（必须配 .rollback.sql）
+├── spec/
+│   ├── invariants.yaml        # 不变量框架（禁用词 / 受控词 / 冲突对 / 计数规则）
+│   └── decisions.yaml         # 决议登记（当前仅 D-21 治理本体）
 ├── scripts/
-│   ├── spec_lint.py          #   一致性门禁
-│   └── init-repo.ps1         #   Windows 本地仓库初始化脚本
-└── .github/workflows/ci.yml  #   CI 门禁
+│   ├── spec_lint.py           # 一致性门禁（D-21）
+│   ├── restore-git-credential.sh  # Deploy Key 恢复（幂等）
+│   └── push-github.sh         # 推送回验
+├── docs/                      # 历史操作记录（可能过期，以项目资产为准）
+└── .github/workflows/ci.yml   # CI：仅保留 spec_lint 门禁
 ```
 
-## 依赖方向红线
+受检文件登记 `files: []` 与结构断言 `structure_assertions: []` 当前为空——本地重建代码时须按 `spec_lint` 纪律同步登记，否则判为「无主漂移」。
 
-```
-Node:   route → lib → services → 线上 DB
-Python: CLI 入口 → collectors → schemas → config → 线下 DB
-```
-
-- 线上不直连线下库、不执行采数与策略计算、不实时调模型
-- 双库唯一通道是 `sync-*` CLI，线上不得反向连接线下
-- 规则与计算是纯函数，I/O 在外层注入，便于 mock
-
-## 凭证边界
-
-`.env` **不入版本库**（NFR-07）。数据源凭证、模型凭证只在 offline-node；线上库不保存线下库地址与账号。
-模板见 `deploy/env/.env.example`。
-
-## 本地初始化（Windows）
-
-```powershell
-cd D:\develop\deepquantor
-.\scripts\init-repo.ps1 -Remote https://git.woa.com/<group>/deepquantor.git
-```
-
-脚本幂等，重复执行安全；不改全局 git 配置；提交前会拦截误暂存的 `.env`。
-
-**接远端的完整步骤见 [`docs/接远端仓库操作手册.md`](docs/接远端仓库操作手册.md)** —— 含认证方式、
-「远端建库时勾了 README」的处理、默认分支是 master 的坑、交付回验清单。
-
-装依赖（内网 PyPI 慢，务必用清华源）：
-
-```powershell
-cd cli
-uv venv --python 3.11
-uv pip install -e ".[dev]" --index-url https://pypi.tuna.tsinghua.edu.cn/simple
-
-cd ..\web
-npm install
-```
-
-## 提交前门禁
-
-一条命令跑完全部门禁（与 CI 同一批）：
-
-```powershell
-.\scripts\check-all.ps1
-```
-
-或逐条：
+## 门禁
 
 ```bash
-python scripts/spec_lint.py --spec spec/ --root .   # 一致性门禁（CI 必跑）
-cd cli && pytest -v                                  # 单测
-cd web && npm test                                   # 单测
+python scripts/spec_lint.py --spec spec/ --root .   # 一致性门禁（唯一在跑的门禁）
 ```
 
-CI 必过项：`spec_lint` / `ruff` / `pytest`（覆盖率 ≥80%）/ 依赖锁一致 / `tsc --noEmit` / `next lint` / `vitest` / `next build` / 迁移回滚脚本配对。
+`pytest` / `ruff` / `vitest` / `tsc` / 迁移回滚配对等门禁待本地代码重建后恢复（见 `dq-deploy-skill` 的 `git-workflow.md` §4）。
 
-## 表结构变更纪律
+## 凭据
 
-唯一可执行权威 = `数据库DDL.sql`（项目资产）。变更顺序：**先 DDL → 再库设计文档 → 最后代码**。
-迁移走 `migrations/YYYYMMDD_xxx.sql` + 同名 `.rollback.sql`，缺一 CI 失败。
+仓库级 Deploy Key，私钥托管在项目资产 `.agent-credentials`（file_id `CJukhqAlcBCS`），不入库。换机 / 沙箱重建后：
 
-## 相关文档（项目资产，不在本仓库）
+```bash
+# 由 agent 签发直链后调用恢复脚本（勿手写直链）
+bash scripts/restore-git-credential.sh <download_url>
+```
 
-《量化选股系统·需求文档》/《系统设计总文档》/《数据库设计文档》/《数据策略总文档》/《环境与初始化文档》/《决策登记》/《需求与Bug追踪》
+`.env` 不入版本库（NFR-07）。
+
+## 提交约定
+
+Conventional Commits；分支 `feature/<需求ID>-<简述>`，需求 ID 取自《需求与Bug追踪》；文档与代码同 PR；推送后回验 SHA。细则见 `dq-deploy-skill` 的 `references/git-workflow.md`。
+
+## 相关文档（唯一真值，项目资产，不在本仓库）
+
+《需求文档》/《需求与Bug追踪》/《决策登记》/《系统设计总文档》/《数据策略总文档》/《数据库设计文档》/《数据库DDL.sql》/《环境与初始化文档》
