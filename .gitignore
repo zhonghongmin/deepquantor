@@ -25,6 +25,7 @@ htmlcov/
 # ── Node Web（web/）────────────────────────────────────────────────
 web/node_modules/
 web/.next/
+web/tsconfig.tsbuildinfo
 web/out/
 web/.turbo/
 web/dist/

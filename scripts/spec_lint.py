@@ -229,33 +229,85 @@ def check_structure(root: Path, inv: dict, findings: list) -> None:
             continue
 
         if rule == "counts_equal":
-            # 管理端：页数 = section 数 = 导航项数 = 路由键数
+            # 管理端：页数 = section 数 = 导航项数 = 路由键数（四者同源）
+            #
+            # ⚠ 为什么不用「数代码文本」：导航项若由 pages.ts 循环派生，源码里
+            # 只有 1 处 `data-p="`，文本计数会误判为 1 项。故本断言改为**集合比对**：
+            #   真值源 pages.ts 的 id 集合
+            #     == app/admin/<id>/page.tsx 的目录名集合
+            #     == 各 tsx 里 <section id="..."> 的 id 集合
+            #     == app/api/<id>/route.ts 的目录名集合
+            # 导航项数取真值源条目数（Sidebar 强制从 navItemsByGroup() 派生）。
+            # 集合相等比数量相等更强：多一项、少一项、错配一个 id 都会被抓到。
             admin = base
-            pages = sorted(p for p in admin.rglob("page.tsx"))
-            if not pages:
-                continue
-            n_pages = len(pages)
-            # section 数：统计 <section id="...">
-            n_sections = 0
-            for p in admin.rglob("*.tsx"):
-                n_sections += len(re.findall(r'<section\s+id="', p.read_text(encoding="utf-8")))
-            # 导航项数：统计 data-p="..."
-            n_nav = 0
-            for p in admin.rglob("*.tsx"):
-                n_nav += len(re.findall(r'data-p="', p.read_text(encoding="utf-8")))
-            # 路由键数：app/api 下有 route.ts 的资源目录数
-            api = root / "web/app/api"
-            n_routes = 0
-            if api.exists():
-                n_routes = len([p for p in api.rglob("route.ts")])
-            vals = {"pages": n_pages, "sections": n_sections, "nav_items": n_nav, "route_keys": n_routes}
-            uniq = set(vals.values())
-            if len(uniq) > 1:
+            truth_file = admin / "lib" / "pages.ts"
+            if not truth_file.exists():
                 findings.append({
                     "rule": "structure-assertion",
                     "file": norm_rel(admin, root),
-                    "message": f"{sa.get('id')}：数量不一致 {vals}",
+                    "message": f"{sa.get('id')}：缺少真值源 {norm_rel(truth_file, root)}",
                 })
+                continue
+
+            truth_ids = _parse_page_ids(truth_file)
+            if not truth_ids:
+                findings.append({
+                    "rule": "structure-assertion",
+                    "file": norm_rel(truth_file, root),
+                    "message": f"{sa.get('id')}：真值源里解析不到任何页面 id",
+                })
+                continue
+
+            page_ids = {p.parent.name for p in admin.rglob("page.tsx")}
+
+            section_ids: set[str] = set()
+            for p in admin.rglob("*.tsx"):
+                section_ids.update(re.findall(r'<section\s+id="([^"]+)"', p.read_text(encoding="utf-8")))
+
+            api = root / "web/app/api"
+            route_ids = {p.parent.name for p in api.rglob("route.ts")} if api.exists() else set()
+
+            # 导航项必须由真值源派生，否则视为「可能手抄漂移」
+            sidebar = admin / "components" / "Sidebar.tsx"
+            if sidebar.exists():
+                stext = sidebar.read_text(encoding="utf-8")
+                if "navItemsByGroup" not in stext:
+                    findings.append({
+                        "rule": "structure-assertion",
+                        "file": norm_rel(sidebar, root),
+                        "message": f"{sa.get('id')}：侧栏未从 navItemsByGroup() 派生，导航项可能手抄漂移",
+                    })
+
+            sets = {
+                "truth": truth_ids,
+                "pages": page_ids,
+                "sections": section_ids,
+                "routes": route_ids,
+            }
+            base_set = sets["truth"]
+            for name, got in sets.items():
+                if got != base_set:
+                    findings.append({
+                        "rule": "structure-assertion",
+                        "file": norm_rel(admin, root),
+                        "message": (
+                            f"{sa.get('id')}：{name} 与真值源不一致"
+                            f"（真值源 {len(base_set)} 项，{name} {len(got)} 项；"
+                            f"多 {sorted(got - base_set)}，少 {sorted(base_set - got)}）"
+                        ),
+                    })
+
+
+def _parse_page_ids(pages_ts: Path) -> set[str]:
+    """从 `lib/pages.ts` 解析页面 id 集合（真值源）。
+
+    只取 ADMIN_PAGES 数组字面量里的 `id: "xxx"`，避免误抓其他对象。
+    """
+    text = pages_ts.read_text(encoding="utf-8")
+    m = re.search(r"export const ADMIN_PAGES[^=]*=\s*\[(.*?)\]\s*as const", text, re.DOTALL)
+    if not m:
+        return set()
+    return set(re.findall(r'\bid:\s*"([^"]+)"', m.group(1)))
 
 
 def main(argv: list[str] | None = None) -> int:

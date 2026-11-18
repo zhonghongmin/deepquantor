@@ -50,6 +50,163 @@ files:
     decision: D-28
     summary: 任务登记器：jobs.yaml → task.job_def（幂等 + cron 时点校验）
 
+  - path: web/app/admin/admin.css
+    kind: css
+    decision: D-32
+    summary: 管理端视觉基线（由脚本从效果图抽取，勿手改）
+  - path: web/app/admin/advice/page.tsx
+    kind: tsx
+    decision: D-32
+    summary: 管理端 advice 页面（由生成器产出，勿手改）
+  - path: web/app/admin/audit/page.tsx
+    kind: tsx
+    decision: D-32
+    summary: 管理端 audit 页面（由生成器产出，勿手改）
+  - path: web/app/admin/components/AdminShell.tsx
+    kind: tsx
+    decision: D-32
+    summary: 管理端外壳：侧栏 + 顶栏 + 内容区
+  - path: web/app/admin/components/Overview.tsx
+    kind: tsx
+    decision: D-32
+    summary: 概览页三层数据链路卡片行（唯一有内容的页面）
+  - path: web/app/admin/components/PageBody.tsx
+    kind: tsx
+    decision: D-32
+    summary: 未实现页统一占位体：明示未实现 + 需求条目
+  - path: web/app/admin/components/Sidebar.tsx
+    kind: tsx
+    decision: D-32
+    summary: 侧栏导航，导航项从 pages.ts 派生，禁止手抄页面名
+  - path: web/app/admin/datamgmt/page.tsx
+    kind: tsx
+    decision: D-32
+    summary: 管理端 datamgmt 页面（由生成器产出，勿手改）
+  - path: web/app/admin/layout.tsx
+    kind: tsx
+    decision: D-32
+    summary: 管理端布局，引入视觉基线 CSS
+  - path: web/app/admin/lib/data.ts
+    kind: typescript
+    decision: D-32
+    summary: 管理端数据访问层：失败返回 failed 而非 0 值（0 与失败可区分）
+  - path: web/app/admin/lib/overview.ts
+    kind: typescript
+    decision: D-32
+    summary: 三层链路健康判定口径（需求文档 §5.9.3 P1 三档表）
+  - path: web/app/admin/lib/pages.ts
+    kind: typescript
+    decision: D-32
+    summary: 管理端页面清单唯一真值源（id/label/group/icon/title/subtitle/req）
+  - path: web/app/admin/lib/routes.ts
+    kind: typescript
+    decision: D-32
+    summary: 路由键清单，与页面清单同源派生
+  - path: web/app/admin/macro/page.tsx
+    kind: tsx
+    decision: D-32
+    summary: 管理端 macro 页面（由生成器产出，勿手改）
+  - path: web/app/admin/micro/page.tsx
+    kind: tsx
+    decision: D-32
+    summary: 管理端 micro 页面（由生成器产出，勿手改）
+  - path: web/app/admin/monitor/page.tsx
+    kind: tsx
+    decision: D-32
+    summary: 管理端 monitor 页面（由生成器产出，勿手改）
+  - path: web/app/admin/ops/page.tsx
+    kind: tsx
+    decision: D-32
+    summary: 管理端 ops 页面（由生成器产出，勿手改）
+  - path: web/app/admin/overview/page.tsx
+    kind: tsx
+    decision: D-32
+    summary: 管理端 overview 页面（由生成器产出，勿手改）
+  - path: web/app/admin/research/page.tsx
+    kind: tsx
+    decision: D-32
+    summary: 管理端 research 页面（由生成器产出，勿手改）
+  - path: web/app/admin/strategy/page.tsx
+    kind: tsx
+    decision: D-32
+    summary: 管理端 strategy 页面（由生成器产出，勿手改）
+  - path: web/app/admin/tests/overview-render.test.tsx
+    kind: test
+    decision: D-32
+    summary: 概览页 P1 验收单测（失败显骨架不显 0 值）
+  - path: web/app/admin/tests/overview.test.ts
+    kind: test
+    decision: D-32
+    summary: L1 健康判定三档口径单测
+  - path: web/app/admin/tests/pages.test.ts
+    kind: test
+    decision: D-32
+    summary: 页面清单真值源的运行时断言（11 页 / 唯一 / 同源）
+  - path: web/app/admin/users/page.tsx
+    kind: tsx
+    decision: D-32
+    summary: 管理端 users 页面（由生成器产出，勿手改）
+  - path: web/app/api/advice/route.ts
+    kind: typescript
+    decision: D-32
+    summary: 管理端 advice 数据接口（由生成器产出，勿手改）
+  - path: web/app/api/audit/route.ts
+    kind: typescript
+    decision: D-32
+    summary: 管理端 audit 数据接口（由生成器产出，勿手改）
+  - path: web/app/api/datamgmt/route.ts
+    kind: typescript
+    decision: D-32
+    summary: 管理端 datamgmt 数据接口（由生成器产出，勿手改）
+  - path: web/app/api/macro/route.ts
+    kind: typescript
+    decision: D-32
+    summary: 管理端 macro 数据接口（由生成器产出，勿手改）
+  - path: web/app/api/micro/route.ts
+    kind: typescript
+    decision: D-32
+    summary: 管理端 micro 数据接口（由生成器产出，勿手改）
+  - path: web/app/api/monitor/route.ts
+    kind: typescript
+    decision: D-32
+    summary: 管理端 monitor 数据接口（由生成器产出，勿手改）
+  - path: web/app/api/ops/route.ts
+    kind: typescript
+    decision: D-32
+    summary: 管理端 ops 数据接口（由生成器产出，勿手改）
+  - path: web/app/api/overview/route.ts
+    kind: typescript
+    decision: D-32
+    summary: 管理端 overview 数据接口（由生成器产出，勿手改）
+  - path: web/app/api/research/route.ts
+    kind: typescript
+    decision: D-32
+    summary: 管理端 research 数据接口（由生成器产出，勿手改）
+  - path: web/app/api/strategy/route.ts
+    kind: typescript
+    decision: D-32
+    summary: 管理端 strategy 数据接口（由生成器产出，勿手改）
+  - path: web/app/api/users/route.ts
+    kind: typescript
+    decision: D-32
+    summary: 管理端 users 数据接口（由生成器产出，勿手改）
+  - path: web/app/globals.css
+    kind: css
+    decision: D-32
+    summary: 全站 reset 与排版基线
+  - path: web/app/layout.tsx
+    kind: tsx
+    decision: D-32
+    summary: Next.js 根布局
+  - path: web/vitest.config.ts
+    kind: typescript
+    decision: D-32
+    summary: 前端测试配置（jsdom + globals）
+  - path: web/vitest.setup.ts
+    kind: typescript
+    decision: D-32
+    summary: 前端测试环境初始化
+
 # ── 禁用词：出现即报错（口径歧义的历史遗留叫法）──────────────────────
 banned_terms:
   - term: 主库
@@ -89,12 +246,10 @@ conflict_pairs:
 # ── 结构断言：数量关系必须成立（D-21 三处同源）──────────────────────
 structure_assertions:
   - id: SA-01
-    desc: 管理端页数 = section 数 = 导航项数 = 路由键数
+    desc: 管理端页面清单唯一真值源 → 页目录 / section id / 导航项 / 路由目录四集合相等
     scope: web/app/admin
     rule: counts_equal
-    equals: [sections, nav_items, route_keys]
-    pending: true           # 管理端前端尚未实现（当前只有 web/package.json）；
-                            # 一旦 web/app/admin 入库，本断言自动恢复为强制校验
+    equals: [pages, sections, route_keys]
   - id: SA-02
     desc: 资产配置四项之和 = 1.0
     scope: cli/dq/macro

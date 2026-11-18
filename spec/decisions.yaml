@@ -51,6 +51,23 @@ decisions:
     tests:
       - scripts/spec_lint.py
 
+  - id: D-32
+    title: 管理端页面清单单一真值源 + 视觉基线脚本化抽取
+    status: propagated
+    supersedes: []
+    replaced_statements: []
+    banned_terms: []
+    affects:
+      - { file: web/app/admin/lib/pages.ts, anchor: ADMIN_PAGES }
+      - { file: web/app/admin/lib/overview.ts, anchor: judgeL1 }
+      - { file: scripts/gen_admin_scaffold.py, anchor: 全文 }
+      - { file: scripts/extract_admin_css.py, anchor: 全文 }
+      - { file: scripts/spec_lint.py, anchor: check_structure }
+    tests:
+      - web/app/admin/tests/pages.test.ts
+      - web/app/admin/tests/overview.test.ts
+      - web/app/admin/tests/overview-render.test.tsx
+
   - id: C-07
     title: 所有功能必须形成自动化测试，无测试不予验收
     status: propagated
