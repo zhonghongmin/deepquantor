@@ -1,0 +1,27 @@
+# DeepQuantor 调度任务定义（唯一权威）
+# 职责（Spec §2.1）：job_key / cli_command / cron / 超时 / 重试。
+# 配置纪律：cron 与守卫只写在本文件与 WorkBuddy 平台侧，CLI 内不重复硬编码时点。
+# 出场顺序：register_jobs.py 幂等写 task.job_def → 平台建任务填命令 + cron 回写 automation_id
+#           → 手动触发核对 job_instance → 打开定时。
+jobs:
+  - job_key: macro-daily
+    job_name: 宏观日频采集与辅助
+    freq: daily
+    cron_expr: "0 2 * * *"            # 日频 02:00（窗口外）；非交易日跳过由 CLI 内断言
+    cli_command: "python -m dq.cli macro-daily --window-date {date} --run-id {run_id} --trigger auto"
+    timeout_sec: 1800
+    retry_cnt: 3
+    enabled: true
+    params:
+      skip_non_trading_day: true
+
+  - job_key: macro-monthly
+    job_name: 宏观月度信号生成
+    freq: monthly
+    cron_expr: "0 10 10-20 * *"       # 每月 10–20 日 10:00，发布窗口内取上月、取到即停
+    cli_command: "python -m dq.cli macro-monthly --window-date {date} --run-id {run_id} --trigger auto"
+    timeout_sec: 3600
+    retry_cnt: 3
+    enabled: true
+    params:
+      publish_window_days: "10-20"

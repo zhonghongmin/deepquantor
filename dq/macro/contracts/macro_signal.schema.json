@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "dq/macro/contracts/macro_signal.schema.json",
+  "title": "MacroSignal 契约（《数据策略总文档》§1.7，多余字段=0）",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "signal_date", "regime", "phase", "phase_progress", "money_credit",
+    "equity_weight", "style_tilt", "asset_alloc", "confidence", "vintage",
+    "next_review", "factors", "money_detail", "credit_detail", "macro_detail",
+    "growth_verified", "forecast_signals"
+  ],
+  "properties": {
+    "signal_date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "regime": { "type": "string", "enum": ["复苏", "过热", "滞胀", "衰退"] },
+    "phase": { "type": "string", "enum": ["前期", "后期"] },
+    "phase_progress": { "type": "number", "minimum": 0, "maximum": 1 },
+    "money_credit": {
+      "type": "string",
+      "enum": [
+        "双宽", "宽货币·中性信用", "宽货币紧信用", "中性货币·宽信用",
+        "中性·中性", "中性货币紧信用", "紧货币宽信用", "紧货币·中性信用", "双紧"
+      ]
+    },
+    "equity_weight": { "type": "number", "minimum": 0, "maximum": 1 },
+    "style_tilt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["size", "value_growth", "cycle_defensive"],
+      "properties": {
+        "size": { "type": "string", "enum": ["大盘", "中小盘", "均衡"] },
+        "value_growth": { "type": "string", "enum": ["价值", "成长", "均衡"] },
+        "cycle_defensive": { "type": "string", "enum": ["周期", "防御", "均衡"] }
+      }
+    },
+    "asset_alloc": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stock", "bond", "commodity", "gold", "cash"],
+      "properties": {
+        "stock": { "type": "number", "minimum": 0, "maximum": 1 },
+        "bond": { "type": "number", "minimum": 0, "maximum": 1 },
+        "commodity": { "const": 0.0 },
+        "gold": { "type": "number", "minimum": 0, "maximum": 1 },
+        "cash": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "confidence": { "type": "string", "enum": ["高", "中", "低"] },
+    "vintage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nowcast_only", "pmi_month", "cpi_month", "ppi_month",
+        "gdp_verified_quarter", "gdp_anchor", "data_quality", "ppi_cpi_gap"
+      ],
+      "properties": {
+        "nowcast_only": { "type": "boolean" },
+        "pmi_month": { "type": "string", "pattern": "^\\d{4}-\\d{2}$" },
+        "cpi_month": { "type": "string", "pattern": "^\\d{4}-\\d{2}$" },
+        "ppi_month": { "type": "string", "pattern": "^\\d{4}-\\d{2}$" },
+        "gdp_verified_quarter": { "type": ["string", "null"], "pattern": "^\\d{4}Q[1-4]$" },
+        "gdp_anchor": { "type": ["number", "null"] },
+        "data_quality": { "type": "string", "enum": ["preliminary", "gdp_verified", "divergence"] },
+        "ppi_cpi_gap": { "type": "string", "enum": ["扩张", "收敛", "一致"] }
+      }
+    },
+    "next_review": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "factors": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["growth", "inflation", "money", "credit"],
+      "propertyNames": { "enum": ["growth", "inflation", "money", "credit"] },
+      "properties": {
+        "growth": { "type": "integer", "enum": [-1, 0, 1] },
+        "inflation": { "type": "integer", "enum": [-1, 0, 1] },
+        "money": { "type": "integer", "enum": [-1, 0, 1] },
+        "credit": { "type": "integer", "enum": [-1, 0, 1] }
+      }
+    },
+    "money_detail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["volume", "month"],
+      "propertyNames": { "enum": ["volume", "month"] },
+      "properties": {
+        "volume": { "type": "integer", "enum": [-1, 0, 1] },
+        "month": { "type": "string", "pattern": "^\\d{4}-\\d{2}$" }
+      }
+    },
+    "credit_detail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["volume", "afre_yoy", "ml_loan_yoy", "month"],
+      "propertyNames": { "enum": ["volume", "afre_yoy", "ml_loan_yoy", "month"] },
+      "properties": {
+        "volume": { "type": "integer", "enum": [-1, 0, 1] },
+        "afre_yoy": { "type": "number" },
+        "ml_loan_yoy": { "type": "number" },
+        "month": { "type": "string", "pattern": "^\\d{4}-\\d{2}$" }
+      }
+    },
+    "macro_detail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["month", "cpi", "ppi", "trade"],
+      "properties": {
+        "month": { "type": "string", "pattern": "^\\d{4}-\\d{2}$" },
+        "cpi": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["up", "down", "core_yoy"],
+          "properties": {
+            "up": { "type": "array", "items": { "type": "string" } },
+            "down": { "type": "array", "items": { "type": "string" } },
+            "core_yoy": { "type": ["number", "null"] }
+          }
+        },
+        "ppi": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["up", "down", "note"],
+          "properties": {
+            "up": { "type": "array", "items": { "type": "string" } },
+            "down": { "type": "array", "items": { "type": "string" } },
+            "note": { "type": "string" }
+          }
+        },
+        "trade": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["export_up", "export_down", "import_up", "import_down"],
+          "properties": {
+            "export_up": { "type": "array", "items": { "type": "string" } },
+            "export_down": { "type": "array", "items": { "type": "string" } },
+            "import_up": { "type": "array", "items": { "type": "string" } },
+            "import_down": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "growth_verified": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pmi_state", "gdp_state", "consistent", "note"],
+      "properties": {
+        "pmi_state": { "type": "integer", "enum": [-1, 0, 1] },
+        "gdp_state": { "type": ["integer", "null"], "enum": [-1, 0, 1, null] },
+        "consistent": { "type": ["boolean", "null"] },
+        "note": { "type": "string" }
+      }
+    },
+    "forecast_signals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "signal_id", "chain", "basis_period", "lead_window", "direction",
+          "confidence", "hit_rate_status", "invalid_if", "as_of"
+        ],
+        "properties": {
+          "signal_id": { "type": "string" },
+          "chain": { "type": "string" },
+          "basis_period": { "type": "string", "pattern": "^\\d{4}-\\d{2}$" },
+          "lead_window": { "type": "string" },
+          "direction": { "type": "string", "enum": ["up", "down", "flat"] },
+          "confidence": { "type": "string" },
+          "hit_rate_status": { "type": "string", "enum": ["pending", "valid", "invalid"] },
+          "invalid_if": { "type": "array", "items": { "type": "string" } },
+          "as_of": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+        }
+      }
+    }
+  }
+}
