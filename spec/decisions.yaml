@@ -1,0 +1,31 @@
+# spec/decisions.yaml —— 决议登记表（L1）
+#
+# 作用（§14.3）：status / supersedes / replaced_statements / banned_terms / affects[] / tests[]
+# 纪律：任何文件、库表、页面区块、测试断言都必须能反查到授权决议；
+#       无法反查者判为「无主漂移」。
+#
+# 状态机：proposed → decided → propagated → verified
+#         `propagated` 由 spec_lint 自动判定；未通过不得进入代码与测试环节。
+#
+# ⚠️ 本文件是「决议结构」的声明，不是决议内容本身。
+#    决议内容（为什么这么选）只记一处：《量化选股系统·决策登记》——不另设第二载体。
+#
+# 2026-11-18：早期生成代码对应的决议（D-28 / D-30 / D-32 / C-07）随代码一并清除。
+#             这些编号在项目资产《决策登记》中无对应条目，属 git 侧孤立结构。
+#             仅保留治理本体决议 D-21；本地任务重建代码时按项目资产重新登记。
+
+version: 1
+
+decisions:
+  - id: D-21
+    title: 文档一致性与决议治理（spec/ 单一事实源 + spec_lint 门禁）
+    status: proposed
+    supersedes: []
+    replaced_statements: []
+    banned_terms: []
+    affects:
+      - { file: spec/invariants.yaml, anchor: 全文 }
+      - { file: scripts/spec_lint.py, anchor: 全文 }
+      - { doc: 量化选股系统·系统设计总文档, anchor: §14 }
+    tests:
+      - scripts/spec_lint.py

@@ -1,0 +1,38 @@
+name: CI
+
+# 门禁依据：D-21 单一事实源一致性
+# 2026-11-18：早期生成代码已清除，仓库收敛为治理空壳。
+#   pytest / ruff / vitest / tsc / 迁移回滚等门禁待本地代码重建后恢复
+#   （见 dq-deploy-skill 的 references/git-workflow.md §4）。
+#   当前仅保留 spec_lint：未 verified 不开工。
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  spec-lint:
+    name: spec_lint（单一事实源一致性）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: 安装 spec_lint 依赖
+        run: pip install pyyaml
+      - name: 执行 spec_lint
+        run: python scripts/spec_lint.py --spec spec/ --root .
+      - name: 上传 lint 报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spec-lint-report
+          path: reports/spec-lint.json
+          if-no-files-found: ignore

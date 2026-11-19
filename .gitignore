@@ -1,30 +1,69 @@
-# 依赖与构建产物
+# ── 凭证与密钥（NFR-07 / NFR-12：.env 不入库、不入日志）────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+secrets/
+credentials/
+
+# ── Python（dq/ tests/ scripts/）───────────────────────────────────
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# ── Node Web（services/web/）──────────────────────────────────────
 node_modules/
 .next/
+tsconfig.tsbuildinfo
 out/
-
-# 环境与密钥（走 env，不入库）
-.env
-.env.local
-*.pem
-
-# Python 缓存
-__pycache__/
-*.pyc
-.pytest_cache/
-.ruff_cache/
-.coverage
-htmlcov/
-
-# 测试产物 / 日志
-*.log
-logs/
-playwright-report/
+.turbo/
+dist/
+.vercel/
+coverage/
 test-results/
+playwright-report/
 
-# 旧版代码归档（迁移备份，不跟踪）
-_legacy_20261119/
+# ── 数据库与运行时数据（数据/日志/备份一律落 D:\develop\<中间件>\，不入应用目录）
+*.sqlite
+*.sqlite3
+*.db
+data/
+logs/
+log/
+backups/
+dump/
+*.sql.gz
+!.github/**/*.sql
 
-# 系统文件
-Thumbs.db
+# ── 本地中间件数据目录（不随应用目录迁移）────────────────────────────
+pgdata/
+redisdata/
+
+# ── 编辑器与操作系统 ───────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
 .DS_Store
+Thumbs.db
+desktop.ini
+
+# ── 本地临时与工具产物 ─────────────────────────────────────────────
+tmp/
+.cache/
+*.log
+
+# ── 报告与覆盖率产物（每次运行都变，会制造无意义 diff）───────────
+reports/
+
+# ── 旧版代码归档（迁移备份，不跟踪）────────────────────────────────
+_legacy_20261119/
