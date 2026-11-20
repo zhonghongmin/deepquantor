@@ -17,7 +17,7 @@ export interface MacroData {
   stamp: string;
   signal: MacroSignalRow | null;
   history: { asOf: string; regime: string }[]; // ⑤ 周期回溯（不足 5 年 → 前端「待回测」空态）
-  forecasts: { signalId: string; windowMonths: number; direction: string; status: string }[];
+  forecasts: { signalId: string; windowMonths: string; direction: string; status: string }[];
 }
 
 export async function getMacro(): Promise<MacroData> {
@@ -35,7 +35,7 @@ export async function getMacro(): Promise<MacroData> {
       `SELECT as_of, regime FROM signal.macro_signal ORDER BY as_of DESC LIMIT 60`,
     ),
     db.query(
-      `SELECT signal_id, window_months, direction, status
+      `SELECT signal_id, lead_window, direction, hit_rate_status
          FROM signal.macro_forecast ORDER BY as_of DESC LIMIT 8`,
     ),
   ]);
@@ -59,9 +59,9 @@ export async function getMacro(): Promise<MacroData> {
     })),
     forecasts: fq.rows.map((x) => ({
       signalId: x.signal_id,
-      windowMonths: x.window_months,
+      windowMonths: x.lead_window, // DDL 唯一权威：lead_window（如 "6m"）
       direction: x.direction,
-      status: x.status, // 未回测只能 pending（只读派生契约）
+      status: x.hit_rate_status, // 未回测只能 pending（只读派生契约）
     })),
   };
 }

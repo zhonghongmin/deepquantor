@@ -172,7 +172,7 @@ describe("macro.ts", () => {
   it("只读信号行映射：Date/字符串双形态、空值规范化（MC-05）", async () => {
     state.handler = (sql) => {
       if (/macro_forecast/.test(sql)) {
-        return [{ signal_id: "f1", window_months: 2, direction: "宽货币", status: "pending" }];
+        return [{ signal_id: "f1", lead_window: "6m", direction: "宽货币", hit_rate_status: "pending" }];
       }
       if (/LIMIT 60/.test(sql)) {
         return [{ as_of: new Date("2026-10-31"), regime: "复苏" }, { as_of: "2026-09-30", regime: "衰退" }];

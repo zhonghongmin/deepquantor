@@ -55,7 +55,7 @@ async function page(path: string): Promise<string> {
   return res.text();
 }
 
-const slice = (html: string, startMark: string, endMark: string): string => {
+const slice = (html: string, startMark: string, endMark?: string): string => {
   const a = html.indexOf(startMark);
   const b = endMark ? html.indexOf(endMark, a + startMark.length) : html.length;
   expect(a, `标记缺失：${startMark}`).toBeGreaterThanOrEqual(0);
