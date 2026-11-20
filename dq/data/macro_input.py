@@ -88,7 +88,10 @@ def build_macro_input(conn, dialect: str, month_end: dt.date,
     ph = "%s" if dialect == "postgres" else "?"
     cur = conn.cursor()
     cutoff = month_end.strftime("%Y-%m")
-    cur.execute(f"SELECT freq, indicator_code, period, val, yoy FROM {table}")
+    cur.execute(
+        f"SELECT freq, indicator_code, period, val, yoy FROM {table} "
+        f"ORDER BY freq, indicator_code, period"
+    )
     vals: dict[str, list[tuple[str, float]]] = defaultdict(list)
     yoys: dict[str, list[tuple[str, float]]] = defaultdict(list)
     gdp_yoy: float | None = None

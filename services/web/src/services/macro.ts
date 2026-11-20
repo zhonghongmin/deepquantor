@@ -2,6 +2,13 @@ import { getPool, probe } from "./db";
 
 /** P10 宏观数据（AD-10）：五区单列；只读 signal.macro_signal，页面不重算。 */
 
+/** DATE（pg → 本地时区午夜 Date）→ YYYY-MM-DD，避免 toISOString 的 UTC 偏移掉一天。 */
+function fmtDate(d: Date): string {
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
 export interface MacroSignalRow {
   asOf: string;
   regime: string;
@@ -45,7 +52,7 @@ export async function getMacro(): Promise<MacroData> {
     stamp: now(),
     signal: r
       ? {
-          asOf: r.as_of instanceof Date ? r.as_of.toISOString().slice(0, 10) : String(r.as_of),
+          asOf: r.as_of instanceof Date ? fmtDate(r.as_of) : String(r.as_of),
           regime: r.regime,
           moneyCredit: r.money_credit ?? null,
           equityWeight: r.equity_weight != null ? Number(r.equity_weight) : null,
@@ -54,7 +61,7 @@ export async function getMacro(): Promise<MacroData> {
         }
       : null,
     history: hq.rows.map((x) => ({
-      asOf: x.as_of instanceof Date ? x.as_of.toISOString().slice(0, 10) : String(x.as_of),
+      asOf: x.as_of instanceof Date ? fmtDate(x.as_of) : String(x.as_of),
       regime: x.regime,
     })),
     forecasts: fq.rows.map((x) => ({

@@ -53,16 +53,14 @@ class JobStatusSink(Protocol):
 
 # ---- 注册表 ----
 
-JOBS: dict[str, JobHandler] = {}
+# ---- 注册表（独立模块 dq.registry，规避 -m 模式 __main__/dq.cli 双实例注册落空）----
 
+from .registry import JOBS, register_job  # noqa: E402
 
-def register_job(job_key: str, handler: JobHandler) -> None:
-    """注册任务处理器（幂等：同键覆盖）。job_key 与 task.job_def.job_key 一致。"""
-    JOBS[job_key] = handler
+__all__ = ["JOBS", "register_job"]
 
 
 # ---- 运行器 ----
-
 class JobRunner:
     """包裹处理器执行并完成状态上报：running → success/failed。
 
@@ -200,6 +198,7 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:  # noqa: BLE001 —— 库不可达时降级内存 sink 并照常执行
             print(f"[warn] 生产 services 组装失败，降级内存 sink：{exc}")
     runner = JobRunner(sink=sink)
+    from . import jobs_macro  # noqa: F401 —— 导入触发任务注册
     result = runner.run(ctx)
     if result.log_summary:
         print(result.log_summary)

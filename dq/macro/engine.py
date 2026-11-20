@@ -157,7 +157,20 @@ def run_macro(inp: MacroInput) -> MacroSignal:
     mc = locate_money_credit(money, credit)
 
     # ---- 2. 确认层象限与相位 ----
+    periods = {
+        "pmi": inp.pmi_month, "cpi": inp.cpi_month, "ppi": inp.ppi_month,
+        "money": inp.money_month, "credit": inp.credit_month,
+        "macro_detail": inp.macro_detail_month,
+    }
+    period_mismatch = len(set(periods.values())) != 1
     if growth is None or inflation is None:
+        regime = inp.prev_regime
+        phase, progress = "前期", 0.0
+        degraded = True
+    elif period_mismatch:
+        # D-24（§1.4）：两层 period 不一致 → 拒绝出 36 格，只走方向模式并标 period_mismatch
+        if inp.prev_regime is None:
+            raise PeriodMismatch(f"两层六处 period 不全等且无上期象限可沿用：{periods}")
         regime = inp.prev_regime
         phase, progress = "前期", 0.0
         degraded = True
@@ -170,15 +183,9 @@ def run_macro(inp: MacroInput) -> MacroSignal:
         else:
             phase, progress = "前期", 0.0  # 中性区归并：固定前期/0
 
-    # ---- 3. D-24 同月校验（完整两层才出 36 格）----
-    if not degraded:
-        periods = {
-            "pmi": inp.pmi_month, "cpi": inp.cpi_month, "ppi": inp.ppi_month,
-            "money": inp.money_month, "credit": inp.credit_month,
-            "macro_detail": inp.macro_detail_month,
-        }
-        if len(set(periods.values())) != 1:
-            raise PeriodMismatch(f"两层六处 period 不全等：{periods}")
+    # ---- 3. D-24 同月校验留痕（方向模式仍需标 period_mismatch）----
+    if period_mismatch:
+        audit["period_mismatch"] = periods
 
     # ---- 4. MC-07 未确认态处置 ----
     sub_label = None

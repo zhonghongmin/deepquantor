@@ -217,7 +217,16 @@ class TestNowcastVerification:
 
 class TestPeriodAndDegraded:
     def test_period_mismatch_rejected(self):
-        # 两层不同 period 被拒（MC-09 验收）
+        # 两层不同 period → 拒绝出 36 格，只走方向模式并标 period_mismatch（MC-09 验收 §1.4）
+        s = run_macro(full_input(credit_month="2026-09", prev_regime="复苏"))
+        assert s.regime == "复苏"  # 沿用上期象限
+        assert s.phase == "前期"
+        assert s.audit["degraded"] is True
+        assert s.audit["period_mismatch"]["credit"] == "2026-09"
+        assert s.confidence == "低"  # degraded 降一档
+
+    def test_period_mismatch_no_prev_regime_raises(self):
+        # 不一致且无上期象限可沿用 → 报错
         with pytest.raises(PeriodMismatch):
             run_macro(full_input(credit_month="2026-09"))
 
