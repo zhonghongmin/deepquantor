@@ -41,6 +41,11 @@ set "PG_DATA=%PG_HOME%data"
 set "REDIS_HOME=%ROOT%..\Redis-8.10.3\"
 set "WEB_DIR=%ROOT%services\web"
 
+rem ---- 0) clean slate: stop-all first (avoid port conflicts / zombie state) ----
+echo [0/3] 清场：先执行 stop-all 避免端口冲突 ...
+call "%ROOT%stop-all.bat" >nul 2>&1
+ping -n 3 127.0.0.1 >nul 2>&1
+
 rem ---- 1) PostgreSQL ----
 echo [1/3] PostgreSQL ...
 if not exist "%PG_DATA%\PG_VERSION" (
@@ -94,7 +99,9 @@ curl -s -o nul -w "%%{http_code}" http://localhost:3000/admin/overview | findstr
 if errorlevel 1 (
   set /a TRIES+=1
   if %TRIES% lss 15 goto probe
-  echo   [WARN] Web 15 秒内未就绪，请查看 Web 窗口日志
+  echo   [ERROR] Web 15 秒内未就绪，请查看 Web 窗口日志；未达健康标准不视为启动成功
+  if "%SILENT%"=="0" pause
+  exit /b 1
 ) else (
   echo   Web 就绪 ✓
 )
