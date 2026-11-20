@@ -11,11 +11,12 @@ export interface MacroSignalRow {
   signalJson: Record<string, unknown> | null;
 }
 
-/** ② 数据支撑：单维度真实序列（market.macro_indicator / signal_json.credit_detail）。 */
+/** ② 数据支撑：单维度真实序列（market.macro_indicator）+ 细项 6 期迷你序列（效果图 2026-11-21 新版）。 */
 export interface DimSeries {
   key: string;
   values: { p: string; v: number }[];
-  subs: { name: string; val: string; dir: "up" | "down" | "flat" }[];
+  /** 细项序列：values 为真实 6 期升序；空数组 = 无真实数据源（前端待采数空态，不造数）。 */
+  subs: { name: string; values: number[]; unit: string; dec: number }[];
 }
 
 /** ⑤ 周期回溯：沪深300 月末收盘累计涨幅（起点归一 0%，真实行情）。 */
@@ -35,7 +36,7 @@ export interface MacroData {
   cycle: CycleData | null;
 }
 
-const CODES = "('PMI','PMI_NM','CPI','PPI','M1','M2','CREDIT','TSF_STOCK')";
+const CODES = "('PMI','PMI_NM','CPI','PPI','M1','M2','TSF_STOCK')";
 
 /** DATE（pg → 本地时区午夜 Date）→ YYYY-MM-DD，避免 toISOString 的 UTC 偏移掉一天。 */
 function fmtDate(d: Date): string {
@@ -54,6 +55,9 @@ function dirVsPrev(series: { p: string; v: number }[]): "up" | "down" | "flat" {
   return d > 0 ? "up" : d < 0 ? "down" : "flat";
 }
 
+const f6 = (map: Map<string, number>): number[] =>
+  lastN(map, 6).map((x) => x.v);
+
 /** 取某指标码最后 n 期序列（升序）。 */
 function lastN(map: Map<string, number>, n: number): { p: string; v: number }[] {
   return [...map.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).slice(-n)
@@ -69,7 +73,7 @@ export async function getMacro(): Promise<MacroData> {
     };
   }
   const db = getPool()!;
-  const [sq, hq, fq, mq, csq, ixq] = await Promise.all([
+  const [sq, hq, fq, mq, ixq] = await Promise.all([
     db.query(
       `SELECT as_of, regime, money_credit, equity_weight, confidence, signal_json
          FROM signal.macro_signal ORDER BY as_of DESC LIMIT 1`,
@@ -85,11 +89,6 @@ export async function getMacro(): Promise<MacroData> {
       `SELECT indicator_code, period, val, yoy FROM market.macro_indicator
          WHERE freq = 'M' AND indicator_code IN ${CODES}
          ORDER BY indicator_code, period`,
-    ),
-    // 社融中长贷多增：单一来源 = 引擎落库的 signal_json.credit_detail（web 层不重算口径）
-    db.query(
-      `SELECT signal_json->'credit_detail' AS cd FROM signal.macro_signal
-         ORDER BY as_of DESC LIMIT 8`,
     ),
     // ⑤ 回溯：沪深300 月末收盘（2021-10 起，当月末收盘；基期 = 2021-10 月末）
     db.query(
@@ -116,49 +115,51 @@ export async function getMacro(): Promise<MacroData> {
   const pmi = lastN(vals.get("PMI") ?? new Map(), 6);
   const cpi = lastN(yoys.get("CPI") ?? new Map(), 6);
   const m2 = lastN(yoys.get("M2") ?? new Map(), 6);
-  const pnm = lastN(vals.get("PMI_NM") ?? new Map(), 2);
-  const ppi = lastN(yoys.get("PPI") ?? new Map(), 2);
-  const m1 = lastN(yoys.get("M1") ?? new Map(), 2);
-  const m2s = lastN(yoys.get("M2") ?? new Map(), 2);
 
   // 信用卡主序列：TSF_STOCK（Python 侧央行锚点口径派生，全量重算，无旧口径污染）
-  // 副项：中长贷同比多增（period = credit_detail.month，与主序列可能错位一期，如实展示）
   const tsfStock = lastN(yoys.get("TSF_STOCK") ?? new Map(), 6);
-  const mlLoan: { p: string; v: number }[] = [];
-  for (const row of csq.rows) {
-    const cd = row.cd as { ml_loan_yoy?: number; month?: string } | null;
-    if (!cd || cd.ml_loan_yoy == null || !cd.month) continue;
-    mlLoan.push({ p: cd.month, v: Number(cd.ml_loan_yoy) });
-    if (mlLoan.length >= 6) break;
-  }
-  mlLoan.reverse();
+
+  // 细项 6 期序列（效果图 2026-11-21 新版）：有真实源的真实算，无源标空数组（前端待采数空态）
+  const pnmVals = f6(vals.get("PMI_NM") ?? new Map());
+  const ppiVals = f6(yoys.get("PPI") ?? new Map());
+  const m1v = lastN(yoys.get("M1") ?? new Map(), 6);
+  const m2v = lastN(yoys.get("M2") ?? new Map(), 6);
+  // M1−M2：同月对齐逐期真实相减（期数不齐时取交集，不补算）
+  const m2ByP = new Map(m2v.map((x) => [x.p, x.v]));
+  const gapVals = m1v.filter((x) => m2ByP.has(x.p)).map((x) => +(x.v - m2ByP.get(x.p)!).toFixed(1));
 
   const series: DimSeries[] = [
     {
       key: "growth", values: pmi,
-      subs: [{ name: "非制造业 PMI", val: f1(pnm[pnm.length - 1]?.v), dir: dirVsPrev(pnm) }],
+      subs: [
+        { name: "新订单", values: [], unit: "", dec: 1 },
+        { name: "生产", values: [], unit: "", dec: 1 },
+        { name: "新出口订单", values: [], unit: "", dec: 1 },
+        { name: "非制造业 PMI", values: pnmVals, unit: "", dec: 1 },
+      ],
     },
     {
       key: "inflation", values: cpi,
-      subs: [{ name: "PPI 同比", val: f1(ppi[ppi.length - 1]?.v), dir: dirVsPrev(ppi) }],
+      subs: [
+        { name: "核心 CPI", values: [], unit: "%", dec: 1 },
+        { name: "食品烟酒", values: [], unit: "%", dec: 1 },
+        { name: "PPI 同比", values: ppiVals, unit: "%", dec: 1 },
+      ],
     },
     {
       key: "money", values: m2,
       subs: [
-        { name: "M1 同比", val: f1(m1[m1.length - 1]?.v), dir: dirVsPrev(m1) },
-        {
-          name: "M1−M2 剪刀差",
-          val: m1.length && m2s.length
-            ? f1(m1[m1.length - 1].v - m2s[m2s.length - 1].v)
-            : "—",
-          dir: "flat",
-        },
+        { name: "M1 同比", values: f6(yoys.get("M1") ?? new Map()), unit: "%", dec: 1 },
+        { name: "M1−M2", values: gapVals, unit: "pct", dec: 1 },
+        { name: "M2 同比", values: f6(yoys.get("M2") ?? new Map()), unit: "%", dec: 1 },
       ],
     },
     {
       key: "credit", values: tsfStock,
       subs: [
-        { name: "新增贷款 · 同比多增", val: f1(mlLoan[mlLoan.length - 1]?.v), dir: dirVsPrev(mlLoan) },
+        { name: "居民同比", values: [], unit: "%", dec: 1 },
+        { name: "企业同比", values: [], unit: "%", dec: 1 },
+        { name: "政府同比", values: [], unit: "%", dec: 1 },
       ],
     },
   ];

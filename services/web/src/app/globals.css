@@ -390,3 +390,35 @@ select, input[type="text"] {
 @media (max-width: 1080px) {
   .result-hero { grid-template-columns: 1fr; }
 }
+
+/* ---- ② 数据支撑 2026-11-21 新版：细项 6 期迷你序列带 + 环比箭头 + 分项弹层 ---- */
+.dim-t td:first-child { color: var(--muted); white-space: nowrap; width: 70px; }
+.dim-t td:last-child { text-align: right; }
+.sub-series { display: flex; justify-content: space-between; font-size: 9.5px;
+  font-variant-numeric: tabular-nums; color: #aab6c4; letter-spacing: .01em; }
+.sub-series span { flex: 1; text-align: center; white-space: nowrap; }
+.sub-series span:first-child { text-align: left; }
+.sub-series .s-last { text-align: right; color: var(--text); font-weight: 700; font-size: 10.5px; }
+.sub-series .s-last .s-arrow { font-size: 10px; font-weight: 700; margin-left: 2px; vertical-align: 1px; font-style: normal; }
+.sub-series .s-last .s-arrow.up { color: var(--green); }
+.sub-series .s-last .s-arrow.dn { color: var(--blue); }
+.sub-series .s-last .s-arrow.flat { color: var(--muted); }
+.sub-pending { font-size: 10.5px; color: #9aa6b2; }
+.spk-now .now-arrow { font-size: 14px; font-weight: 700; vertical-align: 2px; margin-left: 3px; font-style: normal; }
+.spk-now .now-arrow.up { color: var(--green); }
+.spk-now .now-arrow.dn { color: var(--blue); }
+.spk-now .now-arrow.flat { color: var(--muted); }
+.dim-modal-mask { position: fixed; inset: 0; background: rgba(15, 30, 50, .45); z-index: 90; }
+.dim-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(560px, 92vw);
+  max-height: 84vh; overflow: auto; background: #fff; border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(10, 42, 78, .28); z-index: 91; padding: 18px 20px; }
+.dim-modal-h { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.dim-modal-h .dim-ic { width: 22px; height: 22px; }
+.dim-modal-x { margin-left: auto; border: none; background: #f0f3f7; width: 28px; height: 28px;
+  border-radius: 8px; font-size: 18px; line-height: 1; cursor: pointer; color: #64748b; }
+.dim-modal-sub { font-size: 11.5px; color: var(--muted); margin-bottom: 12px; }
+.md-grp { margin-bottom: 12px; }
+.md-grp-h { font-size: 12.5px; font-weight: 700; color: #1d4e72; margin-bottom: 6px; }
+.md-items { display: flex; flex-wrap: wrap; gap: 6px; }
+.md-items span { font-size: 11.5px; background: #f1f5fa; color: #33475b; padding: 3px 9px;
+  border-radius: 6px; border: 1px solid #e3eaf2; }

@@ -16,7 +16,34 @@ const DIM_META: Record<
   growth: { name: "经济 · 产出", cls: "econ", color: "#0ea5e9", icon: "经", keyLabel: "制造业 PMI", unit: "" },
   inflation: { name: "通胀", cls: "inf", color: "#f59e0b", icon: "胀", keyLabel: "CPI 同比", unit: "%" },
   money: { name: "货币", cls: "mon", color: "#6366f1", icon: "币", keyLabel: "M2 同比", unit: "%" },
-  credit: { name: "信用", cls: "cred", color: "#10b981", icon: "信", keyLabel: "社融存量同比", unit: "%" },
+  credit: { name: "信用", cls: "cred", color: "#10b981", icon: "信", keyLabel: "社融存量 同比", unit: "%" },
+};
+
+/** 细项分项明细（效果图 2026-11-21 新版 §1.2.2：仅下传中观、不进状态机；静态展示框架）。 */
+const DIM_DETAILS: Record<string, [string, string[]][]> = {
+  growth: [
+    ["制造业 PMI 分项", ["生产", "新订单", "新出口订单", "原材料库存", "从业人员", "供应商配送时间", "购进价格", "出厂价格"]],
+    ["非制造业 PMI 分项", ["商务活动", "新订单", "建筑业新订单与从业人员"]],
+    ["综合与结构", ["综合 PMI 产出", "高技术制造", "装备制造", "消费品", "高耗能", "大型/中型/小型企业"]],
+    ["增长·量项（验证层）", ["工增分行业", "工业企业利润", "固投：制造/基建/地产", "社零分品类", "高频印证项"]],
+  ],
+  inflation: [
+    ["CPI 八大类", ["食品烟酒", "衣着", "居住", "生活用品及服务", "交通通信", "教育文化娱乐", "医疗保健", "其他"]],
+    ["CPI 重点单品", ["猪肉", "鲜菜", "鲜果", "能源燃料", "服务：住宿/机票/旅行社"]],
+    ["核心 CPI", ["扣除能源的工业消费品", "服务细分"]],
+    ["PPI 生产资料", ["采掘", "原材料", "加工"]],
+    ["PPI 生活资料", ["食品", "衣着", "一般日用品", "耐用消费品"]],
+    ["PPI 分行业", ["煤炭开采", "石油天然气", "有色冶炼", "化学原料", "电气机械", "计算机通信电子"]],
+  ],
+  money: [
+    ["货币量（唯一主判）", ["M2 同比", "M1 同比", "M1−M2"]],
+    ["辅助信号（不参与判定）", ["DR001 绝对水平", "DR001 3 年滚动分位"]],
+  ],
+  credit: [
+    ["社融分项", ["人民币贷款", "政府债", "企业债", "表外", "股票"]],
+    ["信贷分项", ["企业中长贷", "居民短贷", "居民中长贷", "票据"]],
+    ["结构读法", ["贷款 vs 债券 结构迁移", "住户贷款净增减", "短贷与票据撑量", "企业中长贷占比"]],
+  ],
 };
 
 const FACTOR_TEXT: Record<string, Record<number, { txt: string; cls: string }>> = {
@@ -85,6 +112,13 @@ function Spark({ vals, color, dec, unit }: { vals: number[]; color: string; dec:
       <circle cx={pts[pts.length - 1][0].toFixed(1)} cy={pts[pts.length - 1][1].toFixed(1)} r="3.4" fill={color} stroke="#fff" strokeWidth="1.8" />
     </svg>
   );
+}
+
+/** 末月环比箭头（效果图 dirArrow 同构）：末值 > 前值 ↑；< ↓；相等 →。 */
+function dirArrow(vals: number[]): { ch: string; cls: string } {
+  if (vals.length < 2) return { ch: "→", cls: "flat" };
+  const p = vals[vals.length - 2], c = vals[vals.length - 1];
+  return c > p ? { ch: "↑", cls: "up" } : c < p ? { ch: "↓", cls: "dn" } : { ch: "→", cls: "flat" };
 }
 
 /** ⑤ 周期回溯：宏观周期背景色带（真实历史批次）× 沪深300 累计涨幅（真实行情）。 */
@@ -156,6 +190,7 @@ function CycleChart({ cycle, history }: { cycle: CycleData; history: { asOf: str
 export default function MacroPage() {
   const [data, setData] = useState<MacroData | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [openDim, setOpenDim] = useState<string | null>(null); // ② 弹层：维度 key
 
   const load = () =>
     apiGet<MacroData>("/api/macro").then((r: ApiResponse<MacroData>) => {
@@ -268,8 +303,11 @@ export default function MacroPage() {
           const hasLine = vals.length >= 2;
           const last = vals[vals.length - 1];
           const chg = hasLine ? last - vals[0] : null;
+          const ma = dirArrow(vals);
           return (
-            <div key={key} className="card dim">
+            <div key={key} className="card dim" style={{ cursor: "pointer" }}
+              onClick={() => setOpenDim(key)} role="button" tabIndex={0}
+              onKeyDown={(e) => e.key === "Enter" && setOpenDim(key)}>
               <div className="dim-top">
                 <span className={`dim-ic ${meta.cls}`}>{meta.icon}</span>
                 <span className="dt-nm">{meta.name}</span>
@@ -281,7 +319,10 @@ export default function MacroPage() {
                 <>
                   <div className="spk-row">
                     <span className="spk-lbl">{meta.keyLabel} · 近 {vals.length} 期</span>
-                    <span className="spk-now">{last.toFixed(1)}<small>{meta.unit}</small></span>
+                    <span className="spk-now">
+                      {last.toFixed(1)}<small>{meta.unit}</small>
+                      <i className={`now-arrow ${ma.cls}`}>{ma.ch}</i>
+                    </span>
                   </div>
                   <Spark vals={vals} color={meta.color} dec={1} unit={meta.unit} />
                   <div className="spk-x">
@@ -295,11 +336,25 @@ export default function MacroPage() {
                       {dim!.subs.map((sub) => (
                         <tr key={sub.name}>
                           <td>{sub.name}</td>
-                          <td className="mono">{sub.val}{meta.unit}</td>
                           <td>
-                            <span className={`tag ${sub.dir === "up" ? "ok" : sub.dir === "down" ? "gray" : "gray"}`}>
-                              {sub.dir === "up" ? "↑" : sub.dir === "down" ? "↓" : "→"}
-                            </span>
+                            {sub.values.length >= 2 ? (
+                              <div className="sub-series">
+                                {sub.values.map((v, idx) =>
+                                  idx === sub.values.length - 1 ? (
+                                    <span key="last" className="s-last">
+                                      {v.toFixed(sub.dec)}{sub.unit}
+                                      <i className={`s-arrow ${dirArrow(sub.values).cls}`}>
+                                        {dirArrow(sub.values).ch}
+                                      </i>
+                                    </span>
+                                  ) : (
+                                    <span key={idx}>{v.toFixed(sub.dec)}</span>
+                                  ),
+                                )}
+                              </div>
+                            ) : (
+                              <span className="sub-pending">待采数落库</span>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -311,6 +366,36 @@ export default function MacroPage() {
           );
         })}
       </div>
+
+      {/* ② 分项明细弹层（效果图 openDetail 同构）：§1.2.2 仅下传中观、不进状态机 */}
+      {openDim && DIM_DETAILS[openDim] && (
+        <>
+          <div className="dim-modal-mask" onClick={() => setOpenDim(null)} />
+          <div className="dim-modal" role="dialog" aria-modal="true">
+            <div className="dim-modal-h">
+              <span className={`dim-ic ${DIM_META[openDim].cls}`}>{DIM_META[openDim].icon}</span>
+              <span className="dt-nm">{DIM_META[openDim].name}</span>
+              {factors && (
+                <span className={`dt-arrow ${FACTOR_TEXT[openDim]?.[factors[openDim]]?.cls ?? "flat"}`}>
+                  {FACTOR_TEXT[openDim]?.[factors[openDim]]?.txt ?? "—"}
+                </span>
+              )}
+              <button className="dim-modal-x" onClick={() => setOpenDim(null)} aria-label="关闭">×</button>
+            </div>
+            <div className="dim-modal-sub">
+              {DIM_META[openDim].keyLabel} · 近 6 个月 · 完整分项明细（§1.2.2，仅下传中观、不进状态机）
+            </div>
+            {DIM_DETAILS[openDim].map(([g, items]) => (
+              <div key={g} className="md-grp">
+                <div className="md-grp-h">{g}</div>
+                <div className="md-items">
+                  {items.map((x) => <span key={x}>{x}</span>)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       <div className="sec-bar">
         <h3>③ 日频辅助预警</h3>
@@ -332,13 +417,13 @@ export default function MacroPage() {
           const detail: Record<string, string> = {
             growth: "制造业 PMI · 非制造业 PMI",
             inflation: "CPI 同比 · PPI 同比",
-            money: "M1 同比 · M2 同比 · M1−M2 剪刀差",
+            money: "M1 同比 · M2 同比 · M1−M2",
             credit: "社融存量同比 · 新增贷款同比多增",
           };
           const main: Record<string, string> = {
             growth: "PMI（预判层主判）· GDP（验证层）",
             inflation: "CPI · PPI（领先方向）",
-            money: "M2 同比 · M1−M2 剪刀差（量唯一主判）",
+            money: "M2 同比 · M1−M2（量唯一主判）",
             credit: "社融存量同比 · 贷款（企业中长贷）",
           };
           return (
