@@ -53,7 +53,8 @@ if not exist "%PG_DATA%\PG_VERSION" (
 ) else (
   netstat -ano | findstr ":5432" | findstr "LISTENING" >nul 2>&1
   if errorlevel 1 (
-    "%PG_HOME%bin\pg_ctl.exe" -D "%PG_DATA%" -l "%PG_HOME%pg.log" -o "-p 5432" start
+    rem 独立窗口拉起：关主窗口 / Ctrl+C 不再连带杀 PG（pg_ctl 直跑会继承主窗口控制台）
+    start "DeepQuantor PostgreSQL" /min "%PG_HOME%bin\postgres.exe" -D "%PG_DATA%" -p 5432
   ) else (
     echo   已在运行，跳过
   )
