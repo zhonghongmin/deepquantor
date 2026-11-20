@@ -10,7 +10,6 @@ ctx.services 依赖注入，便于离线测试与生产替换。
 from __future__ import annotations
 
 import datetime as dt
-import json
 
 from .cli import JobContext, JobResult, register_job
 from .data.increment import incremental
@@ -29,17 +28,16 @@ def macro_monthly(ctx: JobContext) -> JobResult:
     conn = services["conn"]
     fetch_range = services["fetch_range"]    # (start, end) -> MacroInput 所需数据
     table = services.get("table", "signal.macro_signal")
-    key_cols = ("signal_date",)
+    key_cols = ("as_of",)  # DDL 唯一权威：as_of 为主键（适用期，仅保留最新已发布一期）
 
     month_start = (ctx.window_date.replace(day=1) - dt.timedelta(days=1)).replace(day=1)
     month_end = ctx.window_date.replace(day=1) - dt.timedelta(days=1)  # 取上月
     inp: MacroInput = fetch_range(month_start, month_end)
 
     signal = run_macro(inp)
-    row = signal.to_contract_dict()
+    row = signal.to_db_row(ctx.run_id)  # DDL 对齐列（as_of / s_* / signal_json）
     import pandas as pd
-    df = pd.DataFrame([{k: json.dumps(v, ensure_ascii=False) if isinstance(v, (dict, list)) else v
-                        for k, v in row.items()}])
+    df = pd.DataFrame([row])
     from .data.storage import upsert_dataframe
     dialect = services.get("dialect", "postgres")
     n = upsert_dataframe(conn, table, df, key_cols, dialect=dialect)

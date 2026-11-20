@@ -23,7 +23,7 @@ from typing import Any
 
 import pandas as pd
 
-from .providers import Meta, Source, UnifiedProvider, UpstreamError
+from .providers import Source, UnifiedProvider, UpstreamError
 
 # ---------------------------------------------------------------- IPv4 锁定
 
@@ -124,7 +124,7 @@ def _frame(code: str, freq: str, name: str, unit: str,
     rows = [{"indicator_code": code, "freq": freq, "period": p,
              "indicator_name": name, "val": _num(v), "unit": unit,
              "yoy": _num(y), "source": source}
-            for p, v, y in zip(periods, vals, yoys) if p]
+            for p, v, y in zip(periods, vals, yoys, strict=True) if p]
     return pd.DataFrame(rows, columns=OUT_COLS)
 
 
@@ -205,7 +205,7 @@ def fetch_gdp_cum() -> pd.DataFrame:
     s = df["季度"].astype(str)
     m = s.str.extract(r"(\d{4})年第1-(\d)季度")
     ok = m[0].notna()
-    periods = [f"{a}-Q{b}" for a, b, o in zip(m[0], m[1], ok) if o]
+    periods = [f"{a}-Q{b}" for a, b, o in zip(m[0], m[1], ok, strict=False) if o]
     return _frame("GDPCUM", "Q", "GDP累计值(截至该季)", "亿元", periods,
                   df.loc[ok, "国内生产总值-绝对值"],
                   df.loc[ok, "国内生产总值-同比增长"], "akshare")

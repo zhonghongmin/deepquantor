@@ -156,6 +156,31 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+# ---- 生产 services 组装（B3-a 实际注册）----
+
+MACRO_JOB_KEYS = ("macro-monthly", "macro-indicators")
+DEFAULT_DATABASE_URL = "postgres://postgres@127.0.0.1:5432/deepquantor"
+
+
+def default_services(job_key: str) -> dict[str, Any]:
+    """按任务键组装生产 services：DATABASE_URL 连 PG，macro-monthly 接引擎输入组装。
+
+    macro-daily 的日频辅助取数源待中微观阶段（DL-02），不在此组装。
+    """
+    import os
+
+    import psycopg2
+
+    dsn = os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
+    conn = psycopg2.connect(dsn)
+    services: dict[str, Any] = {"conn": conn, "dialect": "postgres"}
+    if job_key == "macro-monthly":
+        from .data.macro_input import build_macro_input
+
+        services["fetch_range"] = lambda _s, e: build_macro_input(conn, "postgres", e)
+    return services
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     ctx = JobContext(
@@ -165,7 +190,16 @@ def main(argv: list[str] | None = None) -> int:
         trigger_type=args.trigger,
         operator=args.operator,
     )
-    runner = JobRunner(sink=MemoryStatusSink())  # 落库 sink 由 B3-a 按环境接线注入
+    sink = MemoryStatusSink()
+    if ctx.job_key in MACRO_JOB_KEYS:
+        conn = None
+        try:
+            ctx.services = default_services(ctx.job_key)
+            conn = ctx.services["conn"]
+            sink = PostgresStatusSink(conn)  # 状态直写 task.job_instance
+        except Exception as exc:  # noqa: BLE001 —— 库不可达时降级内存 sink 并照常执行
+            print(f"[warn] 生产 services 组装失败，降级内存 sink：{exc}")
+    runner = JobRunner(sink=sink)
     result = runner.run(ctx)
     if result.log_summary:
         print(result.log_summary)

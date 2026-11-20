@@ -106,7 +106,7 @@ def _sqlite_macro_tables():
               "indicator_code TEXT, freq TEXT, period TEXT, indicator_name TEXT,"
               " val REAL, unit TEXT, yoy REAL, source TEXT,"
               " PRIMARY KEY (indicator_code, freq, period))")
-    # 按契约字典动态建 signal.macro_signal 列（TEXT 即可，验落库逻辑非类型）
+    # 按 to_db_row（DDL 对齐）动态建 signal.macro_signal 列（TEXT 即可，验落库逻辑非类型）
     from dq.macro import MacroInput, run_macro
     inp = MacroInput(
         signal_date="2026-10-31",
@@ -119,9 +119,9 @@ def _sqlite_macro_tables():
         macro_detail_month="2026-10",
         factor_scores={"growth": None, "inflation": None, "money": None, "credit": None},
     )
-    cols = list(run_macro(inp).to_contract_dict().keys())
+    cols = list(run_macro(inp).to_db_row("r").keys())
     c.execute(f"CREATE TABLE signal.macro_signal ({', '.join(f'{col} TEXT' for col in cols)},"
-              f" PRIMARY KEY (signal_date))")
+              f" PRIMARY KEY (as_of))")
     return c
 
 
