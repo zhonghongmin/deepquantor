@@ -166,18 +166,29 @@ class TestFetchers:
         df = f.fetch_gdp()
         assert list(df.period) == ["2026-Q3"]
 
-    def test_tsf_fallback_chain(self, monkeypatch):
-        """主源 shrzgm 故障（现网实测 SSL）→ 备源金十命中，last_source 记备源。"""
-        raw = pd.DataFrame({"日期": ["2026-09-01", "2026-10-01"], "最新值": [3351, 2522]})
+    def test_tsf_parse_with_supplement(self):
+        """mofcom JSON 解析 + 近月官方补录合并：滞后月（5-10月）由央行报告值补齐。"""
+        payload = [{"date": "202603", "tiosfs": 52240.0, "rmblaon": 31522.0},
+                   {"date": "202604", "tiosfs": 6245.0, "rmblaon": -4006.0}]
+        df = f.parse_tsf_payload(payload)
+        by_p = dict(zip(df.period, df.val, strict=True))
+        assert by_p["2026-03"] == 52240.0
+        assert by_p["2026-04"] == 6245.0
+        # mofcom 缺失月 → 官方补录（央行月度报告口径）
+        assert by_p["2026-10"] == 11429.0
+        assert by_p["2026-09"] == 35491.0
+        # 已有月不被补录覆盖
+        assert by_p["2026-04"] == 6245.0
+
+    def test_tsf_single_source_no_fallback(self):
+        """TSF 单源（金十备源口径非社融已移除）：主源失败 → UpstreamError，宁可缺数不灌错口径。"""
+        assert len(f.MACRO_REGISTRY["TSF"][3]) == 1  # 仅官方主源一档
 
         def boom():
             raise OSError("SSL: mofcom 站点故障")
 
-        monkeypatch.setattr(f, "_ak", lambda: _akmock(
-            macro_china_shrzgm=boom, macro_china_bank_financing=lambda: raw))
-        df, meta = f.provider_for("TSF").fetch()
-        assert list(df.period) == ["2026-09", "2026-10"]
-        assert meta.last_source == "akshare-jin10"
+        with pytest.raises(f.UpstreamError):
+            f.UnifiedProvider([("akshare-shrzgm", boom)]).fetch()
 
 
 # ---------------------------------------------------------------- fetch_all

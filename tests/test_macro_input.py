@@ -138,3 +138,27 @@ class TestBuildMacroInput:
         _seed_series(conn)
         inp = build_macro_input(conn, "sqlite", dt.date(2026, 6, 30))
         assert inp.pmi_month <= "2026-06"
+
+
+class TestTsfStockDerived:
+    def test_build_tsf_stock_rows(self):
+        """TSF 全量增量 → TSF_STOCK 派生行：水平=锚点倒推/正推，yoy=同比；<13 期返回空。"""
+        from dq.data.macro_input import AFRE_ANCHOR_MONTH, build_tsf_stock_rows
+
+        conn = _conn()
+        months = _month_range("2025-01", 22)
+        base = 30_000.0
+        _seed(conn, [("TSF", "M", m, "社会融资规模增量", base + i * 100, "亿元", None, "akshare")
+                     for i, m in enumerate(months)])
+        rows = build_tsf_stock_rows(conn)
+        assert rows and all(r["indicator_code"] == "TSF_STOCK" for r in rows)
+        by_p = {r["period"]: r for r in rows}
+        # 锚点月水平 = 央行锚点
+        assert by_p[AFRE_ANCHOR_MONTH]["val"] == 4_691_600.0
+        # 同比月有 yoy（期数 ≥13 即可算 12 期前同比）
+        assert by_p[AFRE_ANCHOR_MONTH]["yoy"] is not None
+        # 期数不足 13 → 空
+        conn2 = _conn()
+        _seed(conn2, [("TSF", "M", m, "社会融资规模增量", base, "亿元", None, "akshare")
+                      for m in _month_range("2026-01", 5)])
+        assert build_tsf_stock_rows(conn2) == []

@@ -77,7 +77,21 @@ def macro_indicators(ctx: JobContext) -> JobResult:
     n = upsert_dataframe(conn, table, df, key_cols, dialect=services.get("dialect", "postgres"))
     failed = df.attrs.get("failed", [])
     note = f"，源异常跳过 {failed}" if failed else ""
-    return JobResult(0, f"macro-indicators 落库 {n} 行（区间 {start}~{ctx.window_date}）{note}")
+
+    # TSF_STOCK 派生：社融存量水平/同比（央行锚点口径，全量重算覆盖），供展示层直读
+    import pandas as pd
+
+    from .data.macro_input import build_tsf_stock_rows
+
+    stock_rows = build_tsf_stock_rows(conn, table)
+    n_stock = 0
+    if stock_rows:
+        n_stock = upsert_dataframe(
+            conn, table, pd.DataFrame(stock_rows), key_cols,
+            dialect=services.get("dialect", "postgres"),
+        )
+    return JobResult(0, f"macro-indicators 落库 {n} 行 + TSF_STOCK 派生 {n_stock} 行"
+                        f"（区间 {start}~{ctx.window_date}）{note}")
 
 
 register_job("macro-daily", macro_daily)

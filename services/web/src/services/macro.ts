@@ -35,7 +35,7 @@ export interface MacroData {
   cycle: CycleData | null;
 }
 
-const CODES = "('PMI','PMI_NM','CPI','PPI','M1','M2','CREDIT')";
+const CODES = "('PMI','PMI_NM','CPI','PPI','M1','M2','CREDIT','TSF_STOCK')";
 
 /** DATE（pg → 本地时区午夜 Date）→ YYYY-MM-DD，避免 toISOString 的 UTC 偏移掉一天。 */
 function fmtDate(d: Date): string {
@@ -86,7 +86,7 @@ export async function getMacro(): Promise<MacroData> {
          WHERE freq = 'M' AND indicator_code IN ${CODES}
          ORDER BY indicator_code, period`,
     ),
-    // 社融存量同比 / 中长贷多增：单一来源 = 引擎落库的 signal_json.credit_detail（web 层不重算口径）
+    // 社融中长贷多增：单一来源 = 引擎落库的 signal_json.credit_detail（web 层不重算口径）
     db.query(
       `SELECT signal_json->'credit_detail' AS cd FROM signal.macro_signal
          ORDER BY as_of DESC LIMIT 8`,
@@ -121,17 +121,16 @@ export async function getMacro(): Promise<MacroData> {
   const m1 = lastN(yoys.get("M1") ?? new Map(), 2);
   const m2s = lastN(yoys.get("M2") ?? new Map(), 2);
 
-  // 信用卡：引擎落库的社融存量同比 / 中长贷同比多增（period = credit_detail.month）
-  const afre: { p: string; v: number }[] = [];
+  // 信用卡主序列：TSF_STOCK（Python 侧央行锚点口径派生，全量重算，无旧口径污染）
+  // 副项：中长贷同比多增（period = credit_detail.month，与主序列可能错位一期，如实展示）
+  const tsfStock = lastN(yoys.get("TSF_STOCK") ?? new Map(), 6);
   const mlLoan: { p: string; v: number }[] = [];
   for (const row of csq.rows) {
-    const cd = row.cd as { afre_yoy?: number; ml_loan_yoy?: number; month?: string } | null;
-    if (!cd || cd.afre_yoy == null || !cd.month) continue;
-    afre.push({ p: cd.month, v: Number(cd.afre_yoy) });
-    if (cd.ml_loan_yoy != null) mlLoan.push({ p: cd.month, v: Number(cd.ml_loan_yoy) });
-    if (afre.length >= 6) break;
+    const cd = row.cd as { ml_loan_yoy?: number; month?: string } | null;
+    if (!cd || cd.ml_loan_yoy == null || !cd.month) continue;
+    mlLoan.push({ p: cd.month, v: Number(cd.ml_loan_yoy) });
+    if (mlLoan.length >= 6) break;
   }
-  afre.reverse();
   mlLoan.reverse();
 
   const series: DimSeries[] = [
@@ -157,9 +156,8 @@ export async function getMacro(): Promise<MacroData> {
       ],
     },
     {
-      key: "credit", values: afre,
+      key: "credit", values: tsfStock,
       subs: [
-        { name: "社融存量同比", val: f1(afre[afre.length - 1]?.v), dir: dirVsPrev(afre) },
         { name: "新增贷款 · 同比多增", val: f1(mlLoan[mlLoan.length - 1]?.v), dir: dirVsPrev(mlLoan) },
       ],
     },

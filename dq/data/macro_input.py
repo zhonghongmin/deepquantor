@@ -64,6 +64,34 @@ def tsf_stock_yoy(levels: dict[str, float]) -> dict[str, float]:
     return out
 
 
+def build_tsf_stock_rows(conn, table: str = "market.macro_indicator") -> list[dict]:
+    """TSF 增量 → 社融存量派生指标行（TSF_STOCK），落 market.macro_indicator 供展示层直读。
+
+    口径单一权威：与 build_macro_input 共用 tsf_stock_levels / tsf_stock_yoy
+    （央行 2026-10 锚点 469.16 万亿倒推/正推累加）；全量历史重算，
+    同 period 以最新锚点口径覆盖，避免历史 signal_json 旧口径值污染展示。
+    """
+    cur = conn.cursor()
+    cur.execute(
+        f"SELECT period, val FROM {table} "
+        f"WHERE indicator_code = 'TSF' AND freq = 'M' AND val IS NOT NULL"
+    )
+    incr = {p: float(v) for p, v in cur.fetchall()}
+    if len(incr) < 13:
+        return []
+    levels = tsf_stock_levels(incr)
+    yoy = tsf_stock_yoy(levels)
+    return [
+        {
+            "indicator_code": "TSF_STOCK", "freq": "M", "period": m,
+            "indicator_name": "社会融资规模存量同比(派生)", "val": round(levels[m], 2),
+            "unit": "亿元", "yoy": round(yoy[m], 4) if m in yoy else None,
+            "source": "derived-anchor",
+        }
+        for m in sorted(levels)
+    ]
+
+
 def loan_yoy_extra(incr: dict[str, float]) -> dict[str, float]:
     """新增贷款「同比多增」幅度（%）：当月增量 / 去年同月增量 − 1。
 
