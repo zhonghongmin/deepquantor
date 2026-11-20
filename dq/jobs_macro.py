@@ -60,5 +60,28 @@ def macro_daily(ctx: JobContext) -> JobResult:
     return JobResult(0, f"macro-daily 增量起点 {start}，写入 {n} 行")
 
 
+def macro_indicators(ctx: JobContext) -> JobResult:
+    """月频宏观指标批量采集（DL-01）：近 N 月区间取数 → 幂等落库 market.macro_indicator。
+
+    接口每次返回全量历史，增量语义由「区间起点 + 幂等 upsert」保证；
+    单指标源异常跳过不阻断（NFR-03），全部异常抛 UpstreamError。
+    """
+    from .data.fetchers import fetch_all, minus_months
+    from .data.storage import upsert_dataframe
+
+    services = ctx.services
+    conn = services["conn"]
+    months = int(services.get("recent_months", 25))
+    start = minus_months(ctx.window_date, months)
+    df = fetch_all(start, ctx.window_date)
+    table = services.get("macro_indicator_table", "market.macro_indicator")
+    key_cols = ("indicator_code", "freq", "period")
+    n = upsert_dataframe(conn, table, df, key_cols, dialect=services.get("dialect", "postgres"))
+    failed = df.attrs.get("failed", [])
+    note = f"，源异常跳过 {failed}" if failed else ""
+    return JobResult(0, f"macro-indicators 落库 {n} 行（区间 {start}~{ctx.window_date}）{note}")
+
+
 register_job("macro-daily", macro_daily)
 register_job("macro-monthly", macro_monthly)
+register_job("macro-indicators", macro_indicators)

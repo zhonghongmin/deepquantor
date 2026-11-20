@@ -25,3 +25,14 @@ jobs:
     enabled: true
     params:
       publish_window_days: "10-20"
+
+  - job_key: macro-indicators
+    job_name: 宏观月频指标批量采集（DL-01）
+    freq: monthly
+    cron_expr: "0 3 11-16 * *"        # 每月 11–16 日 03:00（凌晨档，避开 9:30–15:00；PMI/CPI/PPI 已发布）
+    cli_command: "python -m dq.cli macro-indicators --window-date {date} --run-id {run_id} --trigger auto"
+    timeout_sec: 3600
+    retry_cnt: 3
+    enabled: true
+    params:
+      recent_months: 25               # 近 25 个月采集区间（月频指标 3 月趋势 + 两年锚）

@@ -68,18 +68,19 @@ class TestCronGuard:
     def test_register_ok(self, tconn):
         jobs = load_jobs()  # 真实 jobs.yaml
         ins, _upd = upsert_job_defs(tconn, jobs)
-        assert ins == 2
+        assert ins == len(jobs)
         rows = dict(tconn.execute(
             "SELECT job_key, cron_expr FROM task.job_def").fetchall())
         assert rows["macro-daily"] == "0 2 * * *"
         assert rows["macro-monthly"] == "0 10 10-20 * *"
+        assert rows["macro-indicators"] == "0 3 11-16 * *"
 
     def test_idempotent_rerun(self, tconn):
         jobs = load_jobs()
         upsert_job_defs(tconn, jobs)
         ins, upd = upsert_job_defs(tconn, jobs)
-        assert (ins, upd) == (0, 2)
-        assert tconn.execute("SELECT COUNT(*) FROM task.job_def").fetchone()[0] == 2
+        assert (ins, upd) == (0, len(jobs))
+        assert tconn.execute("SELECT COUNT(*) FROM task.job_def").fetchone()[0] == len(jobs)
 
     def test_automation_id_preserved(self, tconn):
         jobs = load_jobs()
@@ -101,6 +102,10 @@ def _sqlite_macro_tables():
     c.execute("ATTACH ':memory:' AS signal")
     c.execute("CREATE TABLE market.macro_daily (date TEXT, code TEXT, close REAL,"
               " PRIMARY KEY (date, code))")
+    c.execute("CREATE TABLE market.macro_indicator ("
+              "indicator_code TEXT, freq TEXT, period TEXT, indicator_name TEXT,"
+              " val REAL, unit TEXT, yoy REAL, source TEXT,"
+              " PRIMARY KEY (indicator_code, freq, period))")
     # 按契约字典动态建 signal.macro_signal 列（TEXT 即可，验落库逻辑非类型）
     from dq.macro import MacroInput, run_macro
     inp = MacroInput(
@@ -189,3 +194,57 @@ class TestMacroJobs:
         assert r.exit_code == 0, r.log_summary
         n = conn.execute("SELECT COUNT(*) FROM market.macro_daily").fetchone()[0]
         assert n == 2
+
+    def test_indicators_fetch_and_idempotent(self, monkeypatch):
+        """DL-01：mock 取数 → 落库 macro_indicator；连跑两次幂等。"""
+        import pandas as _pd
+
+        import dq.data.fetchers as f
+
+        conn = _sqlite_macro_tables()
+        fake = _pd.DataFrame({
+            "indicator_code": ["PMI", "PMI", "CPI"],
+            "freq": ["M", "M", "M"],
+            "period": ["2026-09", "2026-10", "2026-10"],
+            "indicator_name": ["官方制造业PMI"] * 2 + ["CPI当月值"],
+            "val": [49.5, 49.6, 100.2],
+            "unit": ["%", "%", "%"],
+            "yoy": [None, None, 0.2],
+            "source": ["akshare"] * 3,
+        })
+        fake.attrs["failed"] = []
+        monkeypatch.setattr(f, "fetch_all", lambda s, e: fake)
+
+        services = {"conn": conn, "dialect": "sqlite",
+                    "macro_indicator_table": "market.macro_indicator"}
+        r = JobRunner(MemoryStatusSink()).run(
+            JobContext(job_key="macro-indicators", run_id="r-i1", window_date=dt.date(2026, 11, 17),
+                       services=services))
+        assert r.exit_code == 0, r.log_summary
+        assert conn.execute("SELECT COUNT(*) FROM market.macro_indicator").fetchone()[0] == 3
+        # 幂等：连跑第二次行数不变
+        r2 = JobRunner(MemoryStatusSink()).run(
+            JobContext(job_key="macro-indicators", run_id="r-i2", window_date=dt.date(2026, 11, 17),
+                       services=services))
+        assert r2.exit_code == 0, r2.log_summary
+        assert conn.execute("SELECT COUNT(*) FROM market.macro_indicator").fetchone()[0] == 3
+
+    def test_indicators_failed_metric_noted(self, monkeypatch):
+        """单指标源异常 → 跳过留痕进日志摘要，不阻断（NFR-03）。"""
+        import pandas as _pd
+
+        import dq.data.fetchers as f
+
+        conn = _sqlite_macro_tables()
+        fake = _pd.DataFrame({
+            "indicator_code": ["PMI"], "freq": ["M"], "period": ["2026-10"],
+            "indicator_name": ["官方制造业PMI"], "val": [49.6], "unit": ["%"],
+            "yoy": [None], "source": ["akshare"],
+        })
+        fake.attrs["failed"] = ["CPI"]
+        monkeypatch.setattr(f, "fetch_all", lambda s, e: fake)
+        r = JobRunner(MemoryStatusSink()).run(
+            JobContext(job_key="macro-indicators", run_id="r-i3", window_date=dt.date(2026, 11, 17),
+                       services={"conn": conn, "dialect": "sqlite"}))
+        assert r.exit_code == 0, r.log_summary
+        assert "CPI" in r.log_summary

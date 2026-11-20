@@ -37,7 +37,7 @@ playwright-report/
 *.sqlite
 *.sqlite3
 *.db
-data/
+/data/
 logs/
 log/
 backups/
