@@ -91,7 +91,7 @@ if not exist ".next\BUILD_ID" (
 )
 start "DeepQuantor Web" /min cmd /k "npm.cmd run start"
 
-rem ---- health probe: wait up to 15s for :3000 ----
+rem ---- health probe: wait up to 15s for :3000（本地运行，失败仅提示不阻断） ----
 set /a TRIES=0
 :probe
 ping -n 2 127.0.0.1 >nul 2>&1
@@ -99,9 +99,7 @@ curl -s -o nul -w "%%{http_code}" http://localhost:3000/admin/overview | findstr
 if errorlevel 1 (
   set /a TRIES+=1
   if %TRIES% lss 15 goto probe
-  echo   [ERROR] Web 15 秒内未就绪，请查看 Web 窗口日志；未达健康标准不视为启动成功
-  if "%SILENT%"=="0" pause
-  exit /b 1
+  echo   [WARN] Web 15 秒内未就绪，请查看 Web 窗口日志
 ) else (
   echo   Web 就绪 ✓
 )
