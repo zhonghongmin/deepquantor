@@ -7,7 +7,7 @@ export const NAV_ITEMS_META: Record<string, string> = {
   macro: "宏观数据",
   micro: "微观数据",
   strategy: "策略与因子",
-  advice: "投资建议（对内版）",
+  advice: "投资建议（对内）",
   ops: "运营看板",
   users: "用户管理",
   audit: "权限与审计",

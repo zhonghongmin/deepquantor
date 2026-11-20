@@ -45,12 +45,27 @@ body {
   @apply text-[15px] font-bold text-navy mb-3;
 }
 
-/* ---------- 侧栏 ---------- */
+/* ---------- 侧栏（对齐效果图 Sidebar 形态） ---------- */
 .side {
   @apply bg-navy text-white flex flex-col;
 }
+.brand {
+  @apply flex items-center gap-[10px] px-5 pt-5 pb-[18px] border-b border-white/[.08];
+}
+.brand-logo {
+  @apply w-[34px] h-[34px] rounded-[8px] flex-none;
+}
+.brand b {
+  @apply text-white text-[16px] tracking-[.5px] font-bold block leading-tight;
+}
+.brand small {
+  @apply block text-[#7f93a8] text-[11px] tracking-[1px] mt-[1px];
+}
 .nav a {
-  @apply flex items-center gap-[11px] px-3 py-[10px] rounded-[9px] text-[#c7d3e0] text-[13px] no-underline;
+  @apply flex items-center gap-[11px] px-3 py-[10px] mb-[2px] rounded-[9px] text-[#c7d3e0] text-[13.5px] no-underline;
+}
+.nav a .ic {
+  @apply w-[18px] text-center text-[14px] opacity-90 flex-none;
 }
 .nav a:hover {
   @apply bg-white/[.07] text-white;
@@ -59,7 +74,19 @@ body {
   @apply bg-brand text-white shadow-[0_4px_12px_rgba(0,96,192,.35)];
 }
 .nav-group {
-  @apply text-[11px] text-[#7f95ab] px-3 pt-3 pb-1 tracking-wide;
+  @apply text-[11px] text-[#6f86a0] px-3 pt-[14px] pb-[6px] tracking-[1px];
+}
+.side-foot {
+  @apply flex items-center gap-[10px] px-[18px] py-[14px] border-t border-white/[.08];
+}
+.side-foot .av {
+  @apply w-8 h-8 rounded-full bg-brand text-white flex items-center justify-center text-[13px] font-semibold flex-none;
+}
+.side-foot div {
+  @apply text-[12.5px] text-[#dce5ee] leading-tight;
+}
+.side-foot div small {
+  @apply block text-[#7f93a8] text-[11px] font-normal;
 }
 .scrim {
   @apply hidden;
