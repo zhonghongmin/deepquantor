@@ -94,6 +94,72 @@ def macro_indicators(ctx: JobContext) -> JobResult:
                         f"（区间 {start}~{ctx.window_date}）{note}")
 
 
+def macro_aux(ctx: JobContext) -> JobResult:
+    """宏观辅助指标采集（AD-10 ②区待采闭环）：NBS 新网关 + 央行官网 → macro_indicator。
+
+    在线采集失败降级 seed JSON（随仓库全量实采，2026-11-21）；量级体检不通过拒写。
+    """
+    import pandas as pd
+
+    from .data.aux_collector import collect
+    from .data.aux_ingest import audit_overlap, json_to_rows, load_seed, soft_audit
+    from .data.storage import upsert_dataframe
+
+    services = ctx.services
+    conn = services["conn"]
+    table = services.get("macro_indicator_table", "market.macro_indicator")
+    key_cols = ("indicator_code", "freq", "period")
+    months = int(services.get("aux_months", 6))
+
+    # ---- 取数：在线优先，失败降级 seed ----
+    data, provenance = None, ""
+    try:
+        data = collect(months, source=services.get("aux_source", "nbs"), verbose=False)
+        provenance = f"在线采集（nbs+pboc，{months} 期）"
+    except Exception as exc:  # noqa: BLE001 —— 降级 seed，不阻断
+        print(f"[macro-aux] 在线采集失败降级 seed JSON：{type(exc).__name__}: {exc}")
+    if data is None:
+        data = load_seed()
+        provenance = "seed JSON（dq/data/seeds/macro_aux_60m.json，2026-11-21 实采）"
+
+    # ---- 量级体检（纪律②）：与 DB 重合期对照，违例拒写 ----
+    # 按 (code, field, period) 展开：M1/M2 同比对 yoy 列（val 是余额亿元）、
+    # CPI/PPI/PMI 同比或指数在 val 列（fetchers 落库约定）
+    from .data.aux_ingest import AUDIT_PAIRS, AUDIT_SOFT
+
+    audit_codes = tuple({c for c, _f, _t in AUDIT_PAIRS.values()}
+                        | {c for c, _f, _t in AUDIT_SOFT.values()})
+    need_yoy = {c for c, f, _t in AUDIT_PAIRS.values() if f == "yoy"}
+    need_yoy |= {c for c, f, _t in AUDIT_SOFT.values() if f == "yoy"}
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT indicator_code, period, val, yoy FROM market.macro_indicator "
+        "WHERE freq = 'M' AND indicator_code IN %s", (audit_codes,))
+    db_rows: dict[tuple[str, str, str], float] = {}
+    for code, period, val, yoy in cur.fetchall():
+        p = str(period)[:7]
+        if val is not None:
+            db_rows[(code, "val", p)] = float(val)
+        if yoy is not None:
+            db_rows[(code, "yoy", p)] = float(yoy)
+    violations = audit_overlap(data, db_rows)
+    if violations:
+        return JobResult(1, "macro-aux 量级体检未通过，拒绝入库：\n  " + "\n  ".join(violations))
+    warns = soft_audit(data, db_rows)
+
+    # ---- 幂等落库（仅新码）----
+    rows = json_to_rows(data)
+    if not rows:
+        return JobResult(0, "macro-aux 无可入库行（采集空 + seed 缺失？）")
+    for r in rows:
+        r["run_id"] = ctx.run_id
+    n = upsert_dataframe(conn, table, pd.DataFrame(rows), key_cols,
+                         dialect=services.get("dialect", "postgres"))
+    note = f"；软告警 {'；'.join(warns)}" if warns else ""
+    return JobResult(0, f"macro-aux 落库 {n} 行（9 个辅助码）[{provenance}]{note}")
+
+
 register_job("macro-daily", macro_daily)
 register_job("macro-monthly", macro_monthly)
 register_job("macro-indicators", macro_indicators)
+register_job("macro-aux", macro_aux)

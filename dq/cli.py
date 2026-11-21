@@ -156,7 +156,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 # ---- 生产 services 组装（B3-a 实际注册）----
 
-MACRO_JOB_KEYS = ("macro-monthly", "macro-indicators")
+MACRO_JOB_KEYS = ("macro-monthly", "macro-indicators", "macro-aux")
 DEFAULT_DATABASE_URL = "postgres://postgres@127.0.0.1:5432/deepquantor"
 
 

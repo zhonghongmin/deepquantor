@@ -36,7 +36,8 @@ export interface MacroData {
   cycle: CycleData | null;
 }
 
-const CODES = "('PMI','PMI_NM','CPI','PPI','M1','M2','TSF_STOCK')";
+const CODES =
+  "('PMI','PMI_NM','PMI_ORDER','PMI_PROD','PMI_EXP','CPI','CPI_CORE','CPI_FOOD','PPI','M1','M2','TSF_STOCK','CRED_HH_YOY','CRED_ENT_YOY','CRED_GOV_YOY')";
 
 /** DATE（pg → 本地时区午夜 Date）→ YYYY-MM-DD，避免 toISOString 的 UTC 偏移掉一天。 */
 function fmtDate(d: Date): string {
@@ -119,7 +120,8 @@ export async function getMacro(): Promise<MacroData> {
   // 信用卡主序列：TSF_STOCK（Python 侧央行锚点口径派生，全量重算，无旧口径污染）
   const tsfStock = lastN(yoys.get("TSF_STOCK") ?? new Map(), 6);
 
-  // 细项 6 期序列（效果图 2026-11-21 新版）：有真实源的真实算，无源标空数组（前端待采数空态）
+  // 细项 6 期序列（效果图 2026-11-21 新版；2026-11-22 起 NBS 新网关 + 央行官网官方源，
+  // 辅助码由 macro-aux 落库：PMI_ORDER/PROD/EXP、CPI_CORE/FOOD、CRED_*；无源仍标空数组）
   const pnmVals = f6(vals.get("PMI_NM") ?? new Map());
   const ppiVals = f6(yoys.get("PPI") ?? new Map());
   const m1v = lastN(yoys.get("M1") ?? new Map(), 6);
@@ -132,17 +134,17 @@ export async function getMacro(): Promise<MacroData> {
     {
       key: "growth", values: pmi,
       subs: [
-        { name: "新订单", values: [], unit: "", dec: 1 },
-        { name: "生产", values: [], unit: "", dec: 1 },
-        { name: "新出口订单", values: [], unit: "", dec: 1 },
+        { name: "新订单", values: f6(vals.get("PMI_ORDER") ?? new Map()), unit: "", dec: 1 },
+        { name: "生产", values: f6(vals.get("PMI_PROD") ?? new Map()), unit: "", dec: 1 },
+        { name: "新出口订单", values: f6(vals.get("PMI_EXP") ?? new Map()), unit: "", dec: 1 },
         { name: "非制造业 PMI", values: pnmVals, unit: "", dec: 1 },
       ],
     },
     {
       key: "inflation", values: cpi,
       subs: [
-        { name: "核心 CPI", values: [], unit: "%", dec: 1 },
-        { name: "食品烟酒", values: [], unit: "%", dec: 1 },
+        { name: "核心 CPI", values: f6(vals.get("CPI_CORE") ?? new Map()), unit: "%", dec: 1 },
+        { name: "食品烟酒", values: f6(vals.get("CPI_FOOD") ?? new Map()), unit: "%", dec: 1 },
         { name: "PPI 同比", values: ppiVals, unit: "%", dec: 1 },
       ],
     },
@@ -157,9 +159,9 @@ export async function getMacro(): Promise<MacroData> {
     {
       key: "credit", values: tsfStock,
       subs: [
-        { name: "居民同比", values: [], unit: "%", dec: 1 },
-        { name: "企业同比", values: [], unit: "%", dec: 1 },
-        { name: "政府同比", values: [], unit: "%", dec: 1 },
+        { name: "居民同比", values: f6(vals.get("CRED_HH_YOY") ?? new Map()), unit: "%", dec: 1 },
+        { name: "企业同比", values: f6(vals.get("CRED_ENT_YOY") ?? new Map()), unit: "%", dec: 1 },
+        { name: "政府同比", values: f6(vals.get("CRED_GOV_YOY") ?? new Map()), unit: "%", dec: 1 },
       ],
     },
   ];
