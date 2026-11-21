@@ -109,7 +109,7 @@ def macro_aux(ctx: JobContext) -> JobResult:
     conn = services["conn"]
     table = services.get("macro_indicator_table", "market.macro_indicator")
     key_cols = ("indicator_code", "freq", "period")
-    months = int(services.get("aux_months", 6))
+    months = int(services.get("aux_months", 7))  # 7 取 6 期有效窗口（当月未发布自然缺尾）
 
     # ---- 取数：在线优先，失败降级 seed ----
     data, provenance = None, ""

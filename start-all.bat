@@ -81,14 +81,14 @@ if not exist package.json (
   if "%SILENT%"=="0" pause
   exit /b 1
 )
-if not exist ".next\BUILD_ID" (
-  echo   首次运行：执行生产构建 ...
-  call npm.cmd run build
-  if errorlevel 1 (
-    echo [ERROR] 构建失败
-    if "%SILENT%"=="0" pause
-    exit /b 1
-  )
+rem 每次启动都重新构建：旧版只在 BUILD_ID 缺失时 build，导致改码后重启仍跑旧 bundle
+rem （2026-11-22 ②区新指标「页面空数据」即此根因）。构建耗时换数据正确性。
+echo   重新构建（防 stale bundle）...
+call npm.cmd run build
+if errorlevel 1 (
+  echo [ERROR] 构建失败
+  if "%SILENT%"=="0" pause
+  exit /b 1
 )
 start "DeepQuantor Web" /min cmd /k "npm.cmd run start"
 
